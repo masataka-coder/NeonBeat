@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Beat - MIDI Rhythm Game</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js (Web Audio APIラッパー) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Tone.js MIDIパーサー -->
+    <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Orbitron', sans-serif;
+            overflow: hidden;
+            background-color: #050510;
+            color: white;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(10, 10, 20, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.1);
+        }
+        .neon-text-pink {
+            color: #fff;
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #ff007f, 0 0 30px #ff007f, 0 0 40px #ff007f;
+        }
+        .neon-text-blue {
+            color: #fff;
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #00e5ff, 0 0 30px #00e5ff, 0 0 40px #00e5ff;
+        }
+        .neon-border-blue {
+            border-color: #00e5ff;
+            box-shadow: 0 0 10px #00e5ff, inset 0 0 10px #00e5ff;
+        }
+        /* キーボード風ボタンのアニメーション用 */
+        .key-btn {
+            transition: all 0.1s;
+        }
+        .key-btn.active {
+            transform: scale(0.95);
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: #fff;
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+        /* スクロールバーの装飾 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05); 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(0, 229, 255, 0.5); 
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- UIレイヤー -->
+    <div id="ui-layer" class="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-6 md:p-10">
+        
+        <!-- ヘッダー（プレイ中のみ表示） -->
+        <div id="game-header" class="flex justify-between items-start hidden transition-opacity duration-500">
+            <div>
+                <p class="text-sm md:text-lg text-[#00e5ff] tracking-widest mb-[-5px]">SCORE</p>
+                <p class="text-4xl md:text-6xl font-black text-white drop-shadow-[0_0_10px_rgba(0,229,255,0.8)]" id="score-display">0</p>
+            </div>
+            <div class="text-right">
+                <p class="text-sm md:text-lg text-[#ff007f] tracking-widest mb-[-5px]">COMBO</p>
+                <p class="text-5xl md:text-7xl font-black text-white drop-shadow-[0_0_15px_rgba(255,0,127,0.8)]" id="combo-display">0</p>
+            </div>
+        </div>
+
+        <!-- スタート画面 -->
+        <div id="start-screen" class="absolute inset-0 flex items-center justify-center pointer-events-auto transition-opacity duration-500">
+            <div class="glass-panel p-6 md:p-10 rounded-3xl flex flex-col items-center max-w-lg w-full text-center mx-4 relative overflow-hidden max-h-[95vh] overflow-y-auto custom-scrollbar">
+                <!-- 装飾ライン -->
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#ff007f] via-[#00e5ff] to-[#ff007f]"></div>
+                
+                <h1 class="text-4xl md:text-5xl font-black mb-1 tracking-wider neon-text-blue mt-2">NEON BEAT</h1>
+                <p class="text-gray-400 mb-6 tracking-[0.3em] text-xs">WEB MIDI RHYTHM GAME - 3D MODE</p>
+                
+                <!-- ファイルドロップゾーン -->
+                <div class="w-full border-2 border-dashed border-gray-600 rounded-xl p-6 mb-4 hover:border-[#00e5ff] hover:bg-[#00e5ff]/5 transition-all cursor-pointer relative group flex-shrink-0" id="drop-zone">
+                    <input type="file" id="midi-upload" accept=".mid,.midi" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                    <div class="flex flex-col items-center pointer-events-none transition-transform group-hover:scale-105">
+                        <svg class="w-10 h-10 mb-2 text-gray-400 group-hover:text-[#00e5ff] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <p class="text-base font-bold text-gray-200">DROP MIDI FILE HERE</p>
+                        <p class="text-xs text-gray-500 mt-1">or click to browse</p>
+                    </div>
+                </div>
+
+                <!-- セットアップパネル (初期非表示) -->
+                <div id="setup-panel" class="hidden w-full mb-4 bg-black/40 p-4 rounded-xl border border-gray-700 flex-shrink-0">
+                    <div class="mb-4">
+                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">SELECT TRACKS</p>
+                        <div id="track-list" class="flex flex-col gap-1.5 max-h-32 overflow-y-auto text-left text-sm text-gray-300 custom-scrollbar pr-2">
+                            <!-- トラックリストがここに生成されます -->
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4 flex items-center justify-between border-b border-gray-700 pb-3">
+                        <label class="flex items-center gap-2 cursor-pointer text-sm text-[#39ff14] font-bold w-full p-2 bg-gray-800/50 rounded hover:bg-gray-700/50 transition">
+                            <input type="checkbox" id="easy-mode-checkbox" class="accent-[#39ff14] w-5 h-5 cursor-pointer">
+                            EASY MODE (LONG NOTES ONLY)
+                        </label>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <p class="text-xs text-[#ff007f] tracking-widest text-left font-bold">TEMPO (SPEED)</p>
+                            <p class="text-sm text-white font-black" id="speed-display">1.0x</p>
+                        </div>
+                        <input type="range" id="speed-slider" min="0.1" max="2.0" step="0.1" value="1.0" class="w-full accent-[#ff007f] cursor-pointer">
+                    </div>
+                </div>
+                
+                <div class="text-sm text-[#00e5ff] mb-4 h-6 font-bold flex justify-center items-center gap-2" id="file-name"></div>
+                
+                <!-- スタートボタン -->
+                <button id="start-btn" class="w-full py-4 rounded-xl font-bold text-xl bg-gradient-to-r from-[#00e5ff] to-[#ff007f] text-white opacity-50 cursor-not-allowed transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,0,127,0.4)] hover:shadow-[0_0_30px_rgba(0,229,255,0.6)] flex-shrink-0" disabled>
+                    INITIALIZE & START
+                </button>
+
+                <!-- 操作説明 -->
+                <div class="mt-6 text-left w-full flex-shrink-0">
+                    <p class="mb-3 text-xs text-gray-400 tracking-widest text-center">CONTROLS</p>
+                    <div class="flex justify-center gap-4">
+                        <div class="key-btn w-12 h-12 border border-gray-600 rounded-lg flex items-center justify-center font-bold text-xl text-gray-300" id="key-ui-0">D</div>
+                        <div class="key-btn w-12 h-12 border border-gray-600 rounded-lg flex items-center justify-center font-bold text-xl text-gray-300" id="key-ui-1">F</div>
+                        <div class="key-btn w-12 h-12 border border-gray-600 rounded-lg flex items-center justify-center font-bold text-xl text-gray-300" id="key-ui-2">J</div>
+                        <div class="key-btn w-12 h-12 border border-gray-600 rounded-lg flex items-center justify-center font-bold text-xl text-gray-300" id="key-ui-3">K</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- リザルト画面 -->
+        <div id="result-screen" class="absolute inset-0 flex items-center justify-center pointer-events-auto hidden bg-black/80 backdrop-blur-md opacity-0 transition-opacity duration-700">
+            <div class="glass-panel neon-border-blue p-10 rounded-3xl flex flex-col items-center max-w-lg w-full text-center mx-4">
+                <h2 class="text-4xl md:text-5xl font-black mb-2 text-white drop-shadow-[0_0_10px_#00e5ff]">TRACK CLEARED</h2>
+                <p class="text-gray-400 mb-8 tracking-widest">RESULTS</p>
+                
+                <div class="grid grid-cols-2 gap-x-12 gap-y-6 w-full mb-10 text-left border-y border-gray-700 py-6">
+                    <div>
+                        <p class="text-xs text-gray-400 tracking-widest">SCORE</p>
+                        <p class="text-3xl font-bold text-white drop-shadow-[0_0_5px_#00e5ff]" id="result-score">0</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 tracking-widest">MAX COMBO</p>
+                        <p class="text-3xl font-bold text-white drop-shadow-[0_0_5px_#ff007f]" id="result-max-combo">0</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-[#39ff14] tracking-widest">PERFECT</p>
+                        <p class="text-2xl font-bold text-white" id="result-perfect">0</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-red-500 tracking-widest">MISS</p>
+                        <p class="text-2xl font-bold text-gray-400" id="result-miss">0</p>
+                    </div>
+                </div>
+                
+                <button id="retry-btn" class="px-8 py-4 rounded-xl font-bold text-lg border-2 border-[#00e5ff] text-[#00e5ff] hover:bg-[#00e5ff] hover:text-black transition-all hover:shadow-[0_0_20px_#00e5ff] w-full">
+                    PLAY ANOTHER TRACK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 描画用キャンバス -->
+    <canvas id="game-canvas" class="absolute inset-0 z-0"></canvas>
+
+    <script>
+        /**
+         * Neon Beat - Game Logic (3D Perspective & Improved Hit Detection)
+         */
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        // UI Elements
+        const uiStartScreen = document.getElementById('start-screen');
+        const uiGameHeader = document.getElementById('game-header');
+        const uiResultScreen = document.getElementById('result-screen');
+        const fileInput = document.getElementById('midi-upload');
+        const fileNameDisplay = document.getElementById('file-name');
+        const startBtn = document.getElementById('start-btn');
+        const dropZone = document.getElementById('drop-zone');
+        const setupPanel = document.getElementById('setup-panel');
+        const scoreDisplay = document.getElementById('score-display');
+        const comboDisplay = document.getElementById('combo-display');
+        const keyUIs = [
+            document.getElementById('key-ui-0'),
+            document.getElementById('key-ui-1'),
+            document.getElementById('key-ui-2'),
+            document.getElementById('key-ui-3')
+        ];
+
+        // Constants
+        const KEY_MAP = { 'd': 0, 'f': 1, 'j': 2, 'k': 3, 'D': 0, 'F': 1, 'J': 2, 'K': 3 };
+        const COLORS = ['#ff007f', '#00e5ff', '#39ff14', '#ffff00'];
+        const LANE_COUNT = 4;
+        let NOTE_SPEED = 2000; // Z軸方向の移動速度
+        const PERFECT_WINDOW = 0.08;
+        const GREAT_WINDOW = 0.15;
+
+        // 3D Perspective Constants
+        let vanishingY, yOffset;
+        const cameraZ = -500;
+        const projD = 500;
+        const laneWorldWidth = 120;
+        const lanesStartX = - (LANE_COUNT * laneWorldWidth) / 2;
+
+        // Game State
+        let gameState = 'menu';
+        let notes = [];
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let stats = { perfect: 0, great: 0, miss: 0 };
+        let loadedMidi = null;
+        let activeKeys = [false, false, false, false];
+        let laneEffects = [0, 0, 0, 0];
+        let particles = [];
+        let judgeTexts = [];
+        let synth = null;
+        let bgStars = [];
+        let lastTime = 0;
+        let animationFrameId = null;
+
+        // --- 3D Projection & Scaling ---
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            
+            // 消失点と判定ラインの高さを設定
+            vanishingY = height * 0.25; // 消失点のY
+            yOffset = height * 0.65;    // Z=0(判定ライン)の時のオフセット
+            
+            initStars();
+        }
+        window.addEventListener('resize', resize);
+
+        // ワールド座標(X, Z)から画面座標(X, Y, スケール)への射影関数
+        function project(worldX, worldZ) {
+            const dz = worldZ - cameraZ;
+            if (dz <= 10) return null; // カメラより後ろは描画しない
+            const scale = projD / dz;
+            const screenX = width / 2 + worldX * scale;
+            const screenY = vanishingY + yOffset * scale;
+            return { x: screenX, y: screenY, scale: scale };
+        }
+
+        function initStars() {
+            bgStars = [];
+            for (let i = 0; i < 100; i++) {
+                bgStars.push({
+                    x: (Math.random() - 0.5) * 2000,
+                    y: (Math.random() - 0.5) * 1000,
+                    z: Math.random() * 2000,
+                    size: Math.random() * 3 + 1,
+                    speedZ: Math.random() * 300 + 100,
+                    alpha: Math.random()
+                });
+            }
+        }
+
+        // --- 音声 (Tone.js) セットアップ ---
+        function initAudio() {
+            if (!synth) {
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "sawtooth" },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 1 }
+                }).toDestination();
+                const limiter = new Tone.Limiter(-5).toDestination();
+                synth.connect(limiter);
+            }
+        }
+
+        // --- MIDIファイルの解析とUI更新 ---
+        async function processFile(file) {
+            fileNameDisplay.textContent = `LOADING: ${file.name}...`;
+            startBtn.disabled = true;
+            setupPanel.classList.add('hidden');
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                loadedMidi = new Midi(arrayBuffer);
+                
+                let validTracks = 0;
+                const trackList = document.getElementById('track-list');
+                trackList.innerHTML = '';
+
+                loadedMidi.tracks.forEach((track, index) => {
+                    if (track.notes.length > 0) {
+                        validTracks++;
+                        const label = document.createElement('label');
+                        label.className = 'flex items-center gap-3 cursor-pointer hover:bg-white/10 bg-white/5 p-2 rounded transition-colors';
+                        
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = index;
+                        checkbox.className = 'accent-[#00e5ff] w-4 h-4 cursor-pointer';
+                        checkbox.checked = track.channel !== 9; // 9(内部的には10ch)はドラム
+                        
+                        const text = document.createElement('span');
+                        const instName = track.instrument ? track.instrument.name : 'Unknown';
+                        const type = track.channel === 9 ? '(Drum)' : '';
+                        text.textContent = `Tr ${index + 1}: ${instName} ${type} [${track.notes.length} notes]`;
+                        text.className = 'truncate select-none w-full';
+                        
+                        label.appendChild(checkbox);
+                        label.appendChild(text);
+                        trackList.appendChild(label);
+                    }
+                });
+
+                if (validTracks === 0) throw new Error("No playable notes found.");
+
+                if (trackList.querySelectorAll('input:checked').length === 0) {
+                    const firstCheckbox = trackList.querySelector('input[type="checkbox"]');
+                    if (firstCheckbox) firstCheckbox.checked = true;
+                }
+
+                dropZone.classList.add('hidden');
+                setupPanel.classList.remove('hidden');
+
+                fileNameDisplay.textContent = `READY: ${file.name}`;
+                fileNameDisplay.className = "text-sm text-[#39ff14] mb-4 h-6 font-bold flex justify-center items-center gap-2";
+                
+                const resetBtn = document.createElement('button');
+                resetBtn.textContent = 'CHANGE FILE';
+                resetBtn.className = 'text-xs bg-gray-700/80 px-3 py-1 rounded-full hover:bg-gray-600 text-white ml-2 transition-colors border border-gray-500';
+                resetBtn.onclick = () => {
+                    dropZone.classList.remove('hidden');
+                    setupPanel.classList.add('hidden');
+                    fileNameDisplay.innerHTML = '';
+                    startBtn.disabled = true;
+                    startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    loadedMidi = null;
+                };
+                fileNameDisplay.appendChild(resetBtn);
+                
+                startBtn.disabled = false;
+                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                
+            } catch (err) {
+                console.error(err);
+                fileNameDisplay.textContent = "ERROR: INVALID MIDI FILE";
+                fileNameDisplay.className = "text-sm text-red-500 mb-4 h-6 font-bold";
+            }
+        }
+
+        // ファイル入力イベント
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) processFile(e.target.files[0]);
+        });
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-[#00e5ff]', 'bg-[#00e5ff]/10');
+        });
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-[#00e5ff]', 'bg-[#00e5ff]/10');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-[#00e5ff]', 'bg-[#00e5ff]/10');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                processFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        // スピードスライダー
+        document.getElementById('speed-slider').addEventListener('input', (e) => {
+            document.getElementById('speed-display').textContent = `${parseFloat(e.target.value).toFixed(1)}x`;
+        });
+
+        // --- ゲームスタート ---
+        startBtn.addEventListener('click', async () => {
+            if (gameState === 'playing' || !loadedMidi) return;
+            
+            const speed = parseFloat(document.getElementById('speed-slider').value);
+            const selectedTracks = Array.from(document.querySelectorAll('#track-list input:checked')).map(cb => parseInt(cb.value));
+            const isEasyMode = document.getElementById('easy-mode-checkbox').checked;
+            
+            if (selectedTracks.length === 0) {
+                const title = document.querySelector('#setup-panel p');
+                title.classList.add('text-red-500');
+                setTimeout(() => title.classList.remove('text-red-500'), 1000);
+                return;
+            }
+
+            initAudio();
+            await Tone.start();
+            
+            uiStartScreen.style.opacity = '0';
+            setTimeout(() => {
+                uiStartScreen.classList.add('hidden');
+                uiGameHeader.classList.remove('hidden');
+                requestAnimationFrame(() => { uiGameHeader.style.opacity = '1'; });
+            }, 500);
+
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            stats = { perfect: 0, great: 0, miss: 0 };
+            particles = [];
+            judgeTexts = [];
+            updateScoreUI();
+            
+            Tone.Transport.stop();
+            Tone.Transport.position = 0;
+            Tone.Transport.cancel();
+            
+            let rawNotes = [];
+            
+            // トラックごとにノートをスケジュール
+            loadedMidi.tracks.forEach((track, trackIdx) => {
+                const isSelected = selectedTracks.includes(trackIdx);
+                
+                track.notes.forEach(note => {
+                    const scaledTime = note.time / speed;
+                    const scaledDuration = note.duration / speed;
+                    
+                    if (isSelected) {
+                        // EASYモードの場合は短いノーツを除外する（0.3秒未満など）
+                        if (isEasyMode && scaledDuration < 0.3) {
+                             Tone.Transport.schedule((time) => {
+                                const dur = Math.min(scaledDuration, 0.5);
+                                synth.triggerAttackRelease(note.name, dur, time, note.velocity * 0.3);
+                            }, scaledTime);
+                            return; 
+                        }
+
+                        // プレイヤーが叩くノーツ
+                        rawNotes.push({
+                            time: scaledTime,
+                            duration: scaledDuration,
+                            midiNote: note.midi,
+                            name: note.name,
+                            velocity: note.velocity
+                        });
+                        // プレイヤー操作トラックもタイミングに合わせて自動発音
+                        Tone.Transport.schedule((time) => {
+                            const dur = Math.min(scaledDuration, 0.5);
+                            synth.triggerAttackRelease(note.name, dur, time, note.velocity * 0.8);
+                        }, scaledTime);
+                    } else {
+                        // BGMとして自動再生するノーツ
+                        Tone.Transport.schedule((time) => {
+                            const dur = Math.min(scaledDuration, 0.5);
+                            synth.triggerAttackRelease(note.name, dur, time, note.velocity * 0.3);
+                        }, scaledTime);
+                    }
+                });
+            });
+
+            rawNotes.sort((a, b) => a.time - b.time);
+
+            notes = [];
+            let lastTimeObj = -1;
+
+            rawNotes.forEach(note => {
+                if (Math.abs(note.time - lastTimeObj) < 0.05) {
+                    // 同じタイミングの重なっているノーツはスキップ
+                    return;
+                }
+                lastTimeObj = note.time;
+                
+                const lane = note.midiNote % LANE_COUNT;
+                const isLong = note.duration > 0.2;
+                const type = (!isLong && Math.random() > 0.8) ? 'flick' : 'normal';
+                
+                notes.push({ 
+                    ...note, 
+                    lane: lane, 
+                    type: type,
+                    hit: false, 
+                    headMissed: false,
+                    tailMissed: false,
+                    missed: false,
+                    isLong: isLong,
+                    isHolding: false,
+                    holdCompleted: false
+                });
+            });
+
+            gameState = 'playing';
+            Tone.Transport.start("+1"); // 1秒の猶予を持たせてスタート
+            
+            if (!animationFrameId) {
+                lastTime = performance.now();
+                loop();
+            }
+        });
+
+        function endGame() {
+            gameState = 'result';
+            Tone.Transport.stop();
+            Tone.Transport.cancel();
+            
+            uiGameHeader.classList.add('hidden');
+            uiGameHeader.style.opacity = '0';
+            uiResultScreen.classList.remove('hidden');
+            
+            document.getElementById('result-score').textContent = score.toLocaleString();
+            document.getElementById('result-max-combo').textContent = maxCombo;
+            document.getElementById('result-perfect').textContent = stats.perfect;
+            document.getElementById('result-miss').textContent = stats.miss;
+            
+            setTimeout(() => { uiResultScreen.style.opacity = '1'; }, 50);
+        }
+
+        document.getElementById('retry-btn').addEventListener('click', () => {
+            uiResultScreen.style.opacity = '0';
+            setTimeout(() => {
+                uiResultScreen.classList.add('hidden');
+                uiStartScreen.classList.remove('hidden');
+                setTimeout(() => { uiStartScreen.style.opacity = '1'; }, 50);
+            }, 700);
+            gameState = 'menu';
+        });
+
+        // --- 入力判定・UI更新 ---
+        function updateScoreUI() {
+            scoreDisplay.textContent = score.toLocaleString();
+            comboDisplay.textContent = combo;
+            comboDisplay.style.transform = 'scale(1.2)';
+            setTimeout(() => { comboDisplay.style.transform = 'scale(1)'; }, 100);
+        }
+
+        // エフェクト生成ヘルパー（ワールド座標ベース）
+        function spawnJudgeText(text, lane, color) {
+            const worldX = lanesStartX + lane * laneWorldWidth + laneWorldWidth / 2;
+            const p = project(worldX, 0); // 判定ライン上(Z=0)
+            if (p) {
+                judgeTexts.push({ text: text, x: p.x, y: p.y - 40 * p.scale, color: color, life: 1.0, vy: -40 });
+            }
+        }
+
+        function spawnParticles(lane, count) {
+            const worldX = lanesStartX + lane * laneWorldWidth + laneWorldWidth / 2;
+            const p = project(worldX, 0);
+            if (!p) return;
+            const w = laneWorldWidth * p.scale;
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: p.x + (Math.random() - 0.5) * w,
+                    y: p.y,
+                    vx: (Math.random() - 0.5) * 500,
+                    vy: (Math.random() - 1.0) * 500,
+                    life: 1.0,
+                    color: COLORS[lane],
+                    size: (Math.random() * 4 + 2) * p.scale
+                });
+            }
+        }
+
+        // keydown時の判定（始点のみ）
+        function handleHit(lane) {
+            const now = Tone.Transport.seconds;
+            // 始点が未判定かつ、判定枠内のノーツを探す
+            const laneNotes = notes.filter(n => n.lane === lane && !n.hit && !n.headMissed && Math.abs(n.time - now) <= GREAT_WINDOW);
+            if (laneNotes.length === 0) return;
+
+            laneNotes.sort((a, b) => Math.abs(a.time - now) - Math.abs(b.time - now));
+            const target = laneNotes[0];
+            const diff = Math.abs(target.time - now);
+
+            if (diff <= PERFECT_WINDOW) {
+                target.hit = true;
+                if (target.isLong) target.isHolding = true;
+                const scoreAdd = target.type === 'flick' ? 1500 : 1000;
+                score += scoreAdd + (combo * 10);
+                combo++;
+                stats.perfect++;
+                spawnParticles(lane, 20);
+                spawnJudgeText("PERFECT", lane, "#00ffff");
+            } else if (diff <= GREAT_WINDOW) {
+                target.hit = true;
+                if (target.isLong) target.isHolding = true;
+                const scoreAdd = target.type === 'flick' ? 800 : 500;
+                score += scoreAdd + (combo * 5);
+                combo++;
+                stats.great++;
+                spawnParticles(lane, 10);
+                spawnJudgeText("GREAT", lane, "#39ff14");
+            }
+            maxCombo = Math.max(maxCombo, combo);
+            updateScoreUI();
+        }
+
+        // 毎フレームの判定処理（ミス判定＆オートホールド復帰）
+        function updateNoteStates(currentTime) {
+            notes.forEach(note => {
+                if (note.holdCompleted || note.missed) return;
+
+                const isLaneActive = activeKeys[note.lane];
+                const endTime = note.time + (note.isLong ? note.duration : 0);
+
+                // --- 始点のミス判定 ---
+                // 始点を叩かずに判定枠を過ぎてしまった場合
+                if (!note.hit && !note.headMissed && currentTime > note.time + GREAT_WINDOW) {
+                    note.headMissed = true;
+                    if (!note.isLong) {
+                        // 通常ノーツなら完全にミス
+                        note.missed = true;
+                        combo = 0;
+                        stats.miss++;
+                        spawnJudgeText("MISS", note.lane, "#ff007f");
+                        updateScoreUI();
+                    } else {
+                        // ロングノーツの場合、始点としてはミス扱い（コンボ切れる）
+                        combo = 0;
+                        stats.miss++;
+                        spawnJudgeText("MISS", note.lane, "#ff007f");
+                        updateScoreUI();
+                    }
+                }
+
+                // --- ロングノーツの帯（ホールド）判定 ---
+                if (note.isLong) {
+                    // 現在、帯が判定ライン上にいるかどうか
+                    const isInsideBand = currentTime >= note.time && currentTime <= endTime;
+
+                    if (isInsideBand) {
+                        if (isLaneActive) {
+                            // 帯の上にいて、キーが押されていれば（途中からでも）ホールド状態にする
+                            note.isHolding = true;
+                            score += 10;
+                            if (Math.random() > 0.8) spawnParticles(note.lane, 1);
+                        } else {
+                            // キーが離されている
+                            note.isHolding = false;
+                        }
+                    }
+
+                    // 終端を過ぎた時の処理
+                    if (currentTime > endTime) {
+                        if (note.isHolding || isLaneActive) {
+                            // 終端まで押せていれば成功
+                            note.holdCompleted = true;
+                            note.isHolding = false;
+                            score += 1000 + (combo * 10);
+                            combo++;
+                            stats.perfect++;
+                            spawnJudgeText("PERFECT", note.lane, "#00ffff");
+                            spawnParticles(note.lane, 20);
+                            updateScoreUI();
+                        } else {
+                            // 終端で離していた場合はミス
+                            if (!note.tailMissed) {
+                                note.tailMissed = true;
+                                note.holdCompleted = true;
+                                combo = 0;
+                                stats.miss++;
+                                spawnJudgeText("MISS", note.lane, "#ff007f");
+                                updateScoreUI();
+                            }
+                        }
+                        maxCombo = Math.max(maxCombo, combo);
+                    }
+                }
+            });
+        }
+
+        window.addEventListener('keydown', (e) => {
+            const lane = KEY_MAP[e.key];
+            if (lane !== undefined && !activeKeys[lane]) {
+                activeKeys[lane] = true;
+                laneEffects[lane] = 1.0;
+                keyUIs[lane].classList.add('active');
+                if (gameState === 'playing') handleHit(lane);
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const lane = KEY_MAP[e.key];
+            if (lane !== undefined) {
+                activeKeys[lane] = false;
+                keyUIs[lane].classList.remove('active');
+            }
+        });
+
+        // --- 描画処理 (3D Perspective) ---
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function drawBackground(dt) {
+            ctx.fillStyle = '#030308';
+            ctx.fillRect(0, 0, width, height);
+
+            // 星の描画（奥から手前へ）
+            ctx.fillStyle = '#ffffff';
+            const cx = width / 2;
+            const cy = vanishingY;
+            
+            bgStars.forEach(star => {
+                star.z -= star.speedZ * dt;
+                if (star.z <= 0) {
+                    star.z = 2000;
+                    star.x = (Math.random() - 0.5) * 2000;
+                    star.y = (Math.random() - 0.5) * 1000;
+                }
+                
+                const scale = projD / (star.z - cameraZ);
+                if (scale > 0) {
+                    const sx = cx + star.x * scale;
+                    const sy = cy + star.y * scale;
+                    
+                    ctx.globalAlpha = star.alpha * Math.min(1, scale);
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, star.size * scale, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            ctx.globalAlpha = 1.0;
+
+            // 地平線の発光
+            const grad = ctx.createLinearGradient(0, vanishingY - 20, 0, vanishingY + 50);
+            grad.addColorStop(0, 'rgba(0, 229, 255, 0)');
+            grad.addColorStop(0.5, 'rgba(0, 229, 255, 0.2)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, vanishingY - 20, width, 70);
+        }
+
+        function drawLanes(dt) {
+            const maxZ = 6000;
+            const minZ = -400; // 判定ラインより少し手前まで描画
+            
+            ctx.globalCompositeOperation = 'screen';
+
+            for (let i = 0; i < LANE_COUNT; i++) {
+                const wx1 = lanesStartX + i * laneWorldWidth;
+                const wx2 = wx1 + laneWorldWidth;
+                
+                const pBackL = project(wx1, maxZ);
+                const pBackR = project(wx2, maxZ);
+                const pFrontL = project(wx1, minZ);
+                const pFrontR = project(wx2, minZ);
+                
+                if (!pBackL || !pFrontL) continue;
+
+                // レーン背景
+                ctx.fillStyle = `rgba(20, 20, 40, 0.3)`;
+                ctx.beginPath();
+                ctx.moveTo(pBackL.x, pBackL.y);
+                ctx.lineTo(pBackR.x, pBackR.y);
+                ctx.lineTo(pFrontR.x, pFrontR.y);
+                ctx.lineTo(pFrontL.x, pFrontL.y);
+                ctx.fill();
+
+                // 境界線
+                ctx.strokeStyle = 'rgba(0, 229, 255, 0.15)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // キー押下時の発光
+                if (laneEffects[i] > 0) {
+                    const pHit = project(wx1, 0);
+                    if (pHit) {
+                        const grad = ctx.createLinearGradient(0, pHit.y, 0, vanishingY);
+                        grad.addColorStop(0, hexToRgba(COLORS[i], laneEffects[i] * 0.6));
+                        grad.addColorStop(1, 'rgba(0,0,0,0)');
+                        
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.moveTo(pBackL.x, pBackL.y);
+                        ctx.lineTo(pBackR.x, pBackR.y);
+                        ctx.lineTo(pFrontR.x, pFrontR.y);
+                        ctx.lineTo(pFrontL.x, pFrontL.y);
+                        ctx.fill();
+                    }
+                    if (!activeKeys[i]) laneEffects[i] = Math.max(0, laneEffects[i] - dt * 5);
+                }
+            }
+
+            // 判定ライン (Z = 0)
+            const pHitLeft = project(lanesStartX, 0);
+            const pHitRight = project(lanesStartX + LANE_COUNT * laneWorldWidth, 0);
+            if (pHitLeft && pHitRight) {
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#fff';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(pHitLeft.x, pHitLeft.y);
+                ctx.lineTo(pHitRight.x, pHitRight.y);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+            
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function drawNotes(currentTime) {
+            ctx.globalCompositeOperation = 'screen';
+
+            // Zが大きい(奥)から描画するためにソート
+            const visibleNotes = notes.filter(n => !n.missed && !n.holdCompleted && (n.isLong || !n.hit));
+            visibleNotes.sort((a, b) => {
+                const zA = a.isHolding ? 0 : (a.time - currentTime) * NOTE_SPEED;
+                const zB = b.isHolding ? 0 : (b.time - currentTime) * NOTE_SPEED;
+                return zB - zA;
+            });
+
+            for (let i = 0; i < visibleNotes.length; i++) {
+                const note = visibleNotes[i];
+                
+                const timeDiff = note.time - currentTime;
+                let z = timeDiff * NOTE_SPEED;
+                if (note.isHolding) z = 0;
+
+                if (z > 10000 || z < -500) continue; // 描画範囲外
+
+                const wx1 = lanesStartX + note.lane * laneWorldWidth + 10;
+                const wx2 = lanesStartX + (note.lane + 1) * laneWorldWidth - 10;
+
+                // ロングノーツの帯を描画
+                if (note.isLong) {
+                    const endTimeDiff = (note.time + note.duration) - currentTime;
+                    const endZ = endTimeDiff * NOTE_SPEED;
+                    
+                    if (endZ > z) {
+                        const p1 = project(wx1, z);
+                        const p2 = project(wx2, z);
+                        const p3 = project(wx2, endZ);
+                        const p4 = project(wx1, endZ);
+                        
+                        if (p1 && p2 && p3 && p4) {
+                            ctx.globalAlpha = note.isHolding ? 0.9 : 0.6;
+                            ctx.fillStyle = COLORS[note.lane];
+                            ctx.beginPath();
+                            ctx.moveTo(p1.x, p1.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.lineTo(p3.x, p3.y);
+                            ctx.lineTo(p4.x, p4.y);
+                            ctx.fill();
+                            
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                            ctx.globalAlpha = 1.0;
+                        }
+                    }
+                }
+
+                // ノーツの頭を描画
+                if (!note.hit || note.isHolding) {
+                    const isFlick = note.type === 'flick';
+                    const drawColor = isFlick ? '#ff003c' : COLORS[note.lane];
+
+                    const p = project(lanesStartX + note.lane * laneWorldWidth + laneWorldWidth/2, z);
+                    
+                    if (p) {
+                        const scale = p.scale;
+                        const noteW = (laneWorldWidth - 20) * scale;
+                        const noteH = 24 * scale;
+                        const px = p.x - noteW / 2;
+                        const py = p.y - noteH / 2;
+
+                        ctx.shadowBlur = 20 * scale;
+                        ctx.shadowColor = drawColor;
+                        
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.roundRect(px, py, noteW, noteH, 8 * scale);
+                        ctx.fill();
+
+                        ctx.shadowBlur = 0;
+                        ctx.fillStyle = drawColor;
+                        ctx.beginPath();
+                        ctx.roundRect(px + 2*scale, py + 2*scale, noteW - 4*scale, noteH - 4*scale, 6 * scale);
+                        ctx.fill();
+
+                        if (isFlick) {
+                            ctx.fillStyle = '#ffffff';
+                            ctx.beginPath();
+                            ctx.moveTo(p.x, p.y - noteH/4 - 4*scale);
+                            ctx.lineTo(p.x - 8*scale, p.y + noteH/4 - 2*scale);
+                            ctx.lineTo(p.x + 8*scale, p.y + noteH/4 - 2*scale);
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function updateAndDrawEffects(dt) {
+            ctx.globalCompositeOperation = 'screen';
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vy += 1500 * dt;
+                p.life -= dt * 1.5;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.shadowBlur = 0;
+
+            ctx.textAlign = "center";
+            ctx.font = "900 28px Orbitron";
+            for (let i = judgeTexts.length - 1; i >= 0; i--) {
+                let jt = judgeTexts[i];
+                jt.y += jt.vy * dt;
+                jt.life -= dt * 1.5;
+
+                if (jt.life <= 0) {
+                    judgeTexts.splice(i, 1);
+                    continue;
+                }
+
+                ctx.globalAlpha = jt.life;
+                ctx.fillStyle = jt.color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = jt.color;
+                ctx.fillText(jt.text, jt.x, jt.y);
+            }
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1.0;
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function loop() {
+            animationFrameId = requestAnimationFrame(loop);
+            const timeNow = performance.now();
+            const dt = (timeNow - lastTime) / 1000;
+            lastTime = timeNow;
+
+            drawBackground(dt);
+
+            if (gameState === 'playing') {
+                const currentTime = Tone.Transport.seconds;
+                
+                updateNoteStates(currentTime);
+                drawLanes(dt);
+                drawNotes(currentTime);
+                updateAndDrawEffects(dt);
+
+                if (notes.length > 0) {
+                    const lastNoteTime = notes[notes.length - 1].time + (notes[notes.length - 1].isLong ? notes[notes.length - 1].duration : 0);
+                    if (currentTime > lastNoteTime + 2.0) endGame();
+                } else {
+                    const anyTrackEnd = loadedMidi.duration / parseFloat(document.getElementById('speed-slider').value);
+                    if (currentTime > anyTrackEnd + 2.0) endGame();
+                }
+            } else if (gameState === 'menu' || gameState === 'result') {
+                updateAndDrawEffects(dt);
+            }
+        }
+
+        // 初期化
+        resize();
+        
+        // Canvas roundRect Polyfill
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.beginPath();
+                this.moveTo(x + r, y);
+                this.arcTo(x + w, y, x + w, y + h, r);
+                this.arcTo(x + w, y + h, x, y + h, r);
+                this.arcTo(x, y + h, x, y, r);
+                this.arcTo(x, y, x + w, y, r);
+                this.closePath();
+                return this;
+            }
+        }
+    </script>
+</body>
+</html>
