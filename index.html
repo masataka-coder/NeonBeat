@@ -83,6 +83,11 @@
             </div>
         </div>
 
+        <!-- カウントダウン画面 -->
+        <div id="countdown-screen" class="absolute inset-0 flex items-center justify-center z-50 pointer-events-none hidden">
+            <p id="countdown-text" class="text-8xl md:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-[#00e5ff] to-[#ff007f] drop-shadow-[0_0_20px_rgba(0,229,255,0.8)] scale-50 opacity-0 transition-all duration-300"></p>
+        </div>
+
         <!-- スタート画面 -->
         <div id="start-screen" class="absolute inset-0 flex items-center justify-center pointer-events-auto transition-opacity duration-500">
             <div class="glass-panel p-6 md:p-10 rounded-3xl flex flex-col items-center max-w-lg w-full text-center mx-4 relative overflow-hidden max-h-[95vh] overflow-y-auto custom-scrollbar">
@@ -102,6 +107,12 @@
                     </div>
                 </div>
 
+                <!-- サンプル曲ボタン -->
+                <button id="play-sample-btn" class="w-full py-3 mb-4 rounded-xl font-bold text-md border border-[#00e5ff]/40 text-[#00e5ff] hover:bg-[#00e5ff]/10 hover:border-[#00e5ff] transition-all flex items-center justify-center gap-2 pointer-events-auto">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    PLAY SAMPLE SONG (NEON BEAT THEME)
+                </button>
+
                 <!-- セットアップパネル (初期非表示) -->
                 <div id="setup-panel" class="hidden w-full mb-4 bg-black/40 p-4 rounded-xl border border-gray-700 flex-shrink-0">
                     <div class="mb-4">
@@ -111,11 +122,23 @@
                         </div>
                     </div>
                     
-                    <div class="mb-4 flex items-center justify-between border-b border-gray-700 pb-3">
-                        <label class="flex items-center gap-2 cursor-pointer text-sm text-[#39ff14] font-bold w-full p-2 bg-gray-800/50 rounded hover:bg-gray-700/50 transition">
-                            <input type="checkbox" id="easy-mode-checkbox" class="accent-[#39ff14] w-5 h-5 cursor-pointer">
-                            EASY MODE (LONG NOTES ONLY)
-                        </label>
+                    <div class="mb-4">
+                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">SELECT INSTRUMENT</p>
+                        <select id="instrument-select" class="w-full bg-gray-800/50 border border-gray-600 rounded p-2 text-sm text-[#39ff14] font-bold focus:outline-none focus:border-[#00e5ff] cursor-pointer hover:bg-gray-700/50 transition">
+                            <option value="synth">Basic Synth</option>
+                            <option value="fmsynth">FM Synth (Electronic)</option>
+                            <option value="amsynth">AM Synth (Retro)</option>
+                            <option value="duosynth">Duo Synth (Thick)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">GAME MODE</p>
+                        <select id="game-mode-select" class="w-full bg-gray-800/50 border border-gray-600 rounded p-2 text-sm text-white font-bold focus:outline-none focus:border-[#00e5ff] cursor-pointer hover:bg-gray-700/50 transition">
+                            <option value="normal">NORMAL MODE</option>
+                            <option value="easy">EASY MODE (LONG NOTES ONLY)</option>
+                            <option value="tap">TAP ONLY MODE (NO LONG NOTES)</option>
+                        </select>
                     </div>
 
                     <div>
@@ -198,6 +221,7 @@
         const fileNameDisplay = document.getElementById('file-name');
         const startBtn = document.getElementById('start-btn');
         const dropZone = document.getElementById('drop-zone');
+        const playSampleBtn = document.getElementById('play-sample-btn');
         const setupPanel = document.getElementById('setup-panel');
         const scoreDisplay = document.getElementById('score-display');
         const comboDisplay = document.getElementById('combo-display');
@@ -294,24 +318,52 @@
 
         // --- 音声 (Tone.js) セットアップ ---
         function initAudio() {
-            if (!synth) {
-                synth = new Tone.PolySynth(Tone.Synth, {
-                    oscillator: { type: "sawtooth" },
-                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 1 }
-                }).toDestination();
-                const limiter = new Tone.Limiter(-5).toDestination();
-                synth.connect(limiter);
+            if (synth) {
+                synth.dispose();
             }
+
+            const instType = document.getElementById('instrument-select').value;
+            let synthClass = Tone.Synth;
+            let options = {};
+
+            if (instType === 'fmsynth') {
+                synthClass = Tone.FMSynth;
+                options = { harmonicity: 3, modulationIndex: 10, oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.5 } };
+            } else if (instType === 'amsynth') {
+                synthClass = Tone.AMSynth;
+                options = { harmonicity: 2, oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.5 } };
+            } else if (instType === 'duosynth') {
+                synthClass = Tone.DuoSynth;
+                options = { vibratoAmount: 0.5, vibratoRate: 5, voice0: { oscillator: { type: "square" } }, voice1: { oscillator: { type: "sawtooth" } } };
+            } else {
+                synthClass = Tone.Synth;
+                options = { oscillator: { type: "sawtooth" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 1 } };
+            }
+
+            synth = new Tone.PolySynth(synthClass, options).toDestination();
+            const limiter = new Tone.Limiter(-5).toDestination();
+            synth.connect(limiter);
         }
 
         // --- MIDIファイルの解析とUI更新 ---
         async function processFile(file) {
-            fileNameDisplay.textContent = `LOADING: ${file.name}...`;
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                await processMidiArrayBuffer(arrayBuffer, file.name);
+            } catch (err) {
+                console.error(err);
+                fileNameDisplay.textContent = "ERROR: INVALID MIDI FILE";
+                fileNameDisplay.className = "text-sm text-red-500 mb-4 h-6 font-bold";
+            }
+        }
+
+        async function processMidiArrayBuffer(arrayBuffer, name) {
+            fileNameDisplay.textContent = `LOADING: ${name}...`;
+            fileNameDisplay.className = "text-sm text-[#00e5ff] mb-4 h-6 font-bold";
             startBtn.disabled = true;
             setupPanel.classList.add('hidden');
             
             try {
-                const arrayBuffer = await file.arrayBuffer();
                 loadedMidi = new Midi(arrayBuffer);
                 
                 let validTracks = 0;
@@ -350,9 +402,10 @@
                 }
 
                 dropZone.classList.add('hidden');
+                if (playSampleBtn) playSampleBtn.classList.add('hidden');
                 setupPanel.classList.remove('hidden');
 
-                fileNameDisplay.textContent = `READY: ${file.name}`;
+                fileNameDisplay.textContent = `READY: ${name}`;
                 fileNameDisplay.className = "text-sm text-[#39ff14] mb-4 h-6 font-bold flex justify-center items-center gap-2";
                 
                 const resetBtn = document.createElement('button');
@@ -360,6 +413,7 @@
                 resetBtn.className = 'text-xs bg-gray-700/80 px-3 py-1 rounded-full hover:bg-gray-600 text-white ml-2 transition-colors border border-gray-500';
                 resetBtn.onclick = () => {
                     dropZone.classList.remove('hidden');
+                    if (playSampleBtn) playSampleBtn.classList.remove('hidden');
                     setupPanel.classList.add('hidden');
                     fileNameDisplay.innerHTML = '';
                     startBtn.disabled = true;
@@ -382,6 +436,32 @@
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length) processFile(e.target.files[0]);
         });
+
+        // サンプル曲読み込みイベント
+        const SAMPLE_MIDI_BASE64 = "TVRoZAAAAAYAAQAEA8BNVHJrAAAACwD/UQMHoSAA/y8ATVRyawAAA3oA/wMRTGVhZCBTeW50aCAoUExBWSkAkEpkhVCASmSBcJBNZIVQgE1kgXCQUWSFUIBRZIFwkE9kg2CAT2QAkE1kg2CATWQAkFJkiyCAUmSDYJBPZIVQgE9kgXCQTWSDYIBNZACQSmSDYIBKZACQSGSFUIBIZIFwkExkhVCATGSBcJBPZIVQgE9kgXCQTWSDYIBNZACQTGSDYIBKZACQUWSPAIBRZACQTGSFUIBMZIFwkEhkg2CASGQAkEVkg2CARWQAkEpkhVCASmSBcJBNZIVQgE1kgXCQUWSFUIBRZIFwkE9kg2CAT2QAkE1kg2CATWQAkFJkiyCAUmSDYJBPZIVQgE9kgXCQTWSDYIBNZACQSmSDYIBKZACQSGSFUIBIZIFwkExkhVCATGSBcJBPZIVQgE9kgXCQTWSDYIBNZACQTGSDYIBKZACQUWSLIIBRZINgkElkhVCASWSBcJBMZINggExkAJBPZINggE9kAJBKZINggEpkAJBKZINggEpkAJBNZINggE1kAJBKZINggEpkAJBRZINggFFkAJBNZINggE1kAJBPZINggE9kAJBNZINggE1kAJBSZINggFJkAJBSZINggFJkAJBKZINggEpkAJBSZINggFJkAJBPZINggE9kAJBNZINggE1kAJBKZIdAgEpkAJBIZINggEhkAJBIZINggEhkAJBMZINggExkAJBIZINggEhkAJBPZINggE9kAJBMZINggExkAJBNZINggE1kAJBMZINggExkAJBRZINggFFkAJBRZINggFFkAJBIZINggEhkAJBFZINggEVkAJBMZINggExkAJBIZINggEhkAJBFZIdAgEVkAJBKZINggEpkAJBKZINggEpkAJBNZINggE1kAJBKZINggEpkAJBRZINggFFkAJBNZINggE1kAJBPZINggE9kAJBNZINggE1kAJBSZINggFJkAJBSZINggFJkAJBKZINggEpkAJBSZINggFJkAJBPZINggE9kAJBNZINggE1kAJBKZIdAgEpkAJBIZINggEhkAJBIZINggEhkAJBMZINggExkAJBIZINggEhkAJBPZINggE9kAJBMZINggExkAJBNZINggE1kAJBMZINggExkAJBKZINggEpkAJBNZINggE1kAJBRZINggFFkAJBWZINggFZkAJBWZI8AgFZkAP8vAE1UcmsAAAR9AP8DEFN5bnRoIEJhc3MgKEJHTSkAmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmSRQgwCJJFBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmSRQgwCJJFBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmSRQgwCJJFBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQjwCJJlAA/y8ATVRyawAAAacA/wMPU3ludGggUGFkIChCR00pAJkyQQCZNUEAmTlBngCJMkEAiTVBAIk5QQCZLkEAmTJBAJk1QZ4AiS5BAIkyQQCJNUEAmTBBAJk0QQCZN0GeAIkwQQCJNEEAiTdBAJktQQCZMEEAmTRBngCJLUEAiTBBAIk0QQCZMkEAmTVBAJk5QZ4AiTJBAIk1QQCJOUEAmS5BAJkyQQCZNUGeAIkuQQCJMkEAiTVBAJkwQQCZNEEAmTdBngCJMEEAiTRBAIk3QQCZLUEAmTFBAJk0QZ4AiS1BAIkxQQCJNEEAmTJBAJk1QQCZOUGeAIkyQQCJNUEAiTlBAJkuQQCZMkEAmTVBngCJLkEAiTJBAIk1QQCZMEEAmTRBAJk3QZ4AiTBBAIk0QQCJN0EAmS1BAJkwQQCZNEGeAIktQQCJMEEAiTRBAkyQQCZNUEAmTlBngCJMkEAiTVBAIk5QQCZLkEAmTJBAJk1QZ4AiS5BAIkyQQCJNUEAmTBBAJk0QQCZN0GeAIkwQQCJNEEAiTdBAJkyQQCZNUEAmTlBpUCJMkEAiTVBAIk5QQD/LwA==";
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        if (playSampleBtn) {
+            playSampleBtn.addEventListener('click', async () => {
+                try {
+                    const arrayBuffer = base64ToArrayBuffer(SAMPLE_MIDI_BASE64);
+                    await processMidiArrayBuffer(arrayBuffer, "Neon Beat Theme (Sample)");
+                } catch (err) {
+                    console.error(err);
+                    fileNameDisplay.textContent = "ERROR: COULD NOT LOAD SAMPLE SONG";
+                    fileNameDisplay.className = "text-sm text-red-500 mb-4 h-6 font-bold";
+                }
+            });
+        }
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('border-[#00e5ff]', 'bg-[#00e5ff]/10');
@@ -406,11 +486,13 @@
 
         // --- ゲームスタート ---
         startBtn.addEventListener('click', async () => {
-            if (gameState === 'playing' || !loadedMidi) return;
+            if (gameState === 'playing' || gameState === 'countdown' || !loadedMidi) return;
             
             const speed = parseFloat(document.getElementById('speed-slider').value);
             const selectedTracks = Array.from(document.querySelectorAll('#track-list input:checked')).map(cb => parseInt(cb.value));
-            const isEasyMode = document.getElementById('easy-mode-checkbox').checked;
+            const gameMode = document.getElementById('game-mode-select').value;
+            const isEasyMode = gameMode === 'easy';
+            const isTapOnlyMode = gameMode === 'tap';
             
             if (selectedTracks.length === 0) {
                 const title = document.querySelector('#setup-panel p');
@@ -442,13 +524,15 @@
             Tone.Transport.cancel();
             
             let rawNotes = [];
+            const START_OFFSET = 2.0; // GO!から最初の音が鳴るまでの猶予時間（ノーツの落下時間）
             
             // トラックごとにノートをスケジュール
             loadedMidi.tracks.forEach((track, trackIdx) => {
                 const isSelected = selectedTracks.includes(trackIdx);
                 
                 track.notes.forEach(note => {
-                    const scaledTime = note.time / speed;
+                    // スピードと開始オフセットを加味した時間
+                    const scaledTime = (note.time / speed) + START_OFFSET;
                     const scaledDuration = note.duration / speed;
                     
                     if (isSelected) {
@@ -461,7 +545,7 @@
                             return; 
                         }
 
-                        // プレイヤーが叩くノーツ
+                        // プレイヤーが叩くノーツとして一時保存
                         rawNotes.push({
                             time: scaledTime,
                             duration: scaledDuration,
@@ -484,20 +568,60 @@
                 });
             });
 
+            // --- 1. 同時発音（和音）の間引き ---
+            // プレイ用のノーツ群を時間順にソートし、同時押しが横に並ばないようにする
             rawNotes.sort((a, b) => a.time - b.time);
-
-            notes = [];
+            let processedNotes = [];
             let lastTimeObj = -1;
 
             rawNotes.forEach(note => {
+                // 0.05秒以内のノーツは同時発音とみなし、先着1つだけをプレイ用レーンに採用する
                 if (Math.abs(note.time - lastTimeObj) < 0.05) {
-                    // 同じタイミングの重なっているノーツはスキップ
                     return;
                 }
                 lastTimeObj = note.time;
-                
+                processedNotes.push(note);
+            });
+
+            // --- 2. 縦の密接（連打）のロングノーツ化 ---
+            let mergedNotes = [];
+            for (let lane = 0; lane < LANE_COUNT; lane++) {
+                // レーンごとに抽出
+                let laneRawNotes = processedNotes.filter(n => (n.midiNote % LANE_COUNT) === lane);
+                laneRawNotes.sort((a, b) => a.time - b.time);
+
+                if (isTapOnlyMode) {
+                    // TAP ONLYモードの場合は結合処理をせず、全て単発にする
+                    laneRawNotes.forEach(note => mergedNotes.push({ ...note, subNotes: [] }));
+                } else {
+                    let currentNote = null;
+                    for (let note of laneRawNotes) {
+                        if (!currentNote) {
+                            currentNote = { ...note, subNotes: [] };
+                            continue;
+                        }
+
+                        let currentEndTime = currentNote.time + currentNote.duration;
+                        // 同一レーンで、前のノーツの終わりから 0.15秒以内に次のノーツが来るなら結合する
+                        if (note.time <= currentEndTime + 0.15) {
+                            currentNote.duration = Math.max(currentNote.duration, (note.time + note.duration) - currentNote.time);
+                            currentNote.subNotes.push(note.time); // 結合されたノーツのタイミングを記録
+                        } else {
+                            mergedNotes.push(currentNote);
+                            currentNote = { ...note, subNotes: [] };
+                        }
+                    }
+                    if (currentNote) mergedNotes.push(currentNote);
+                }
+            }
+
+            // 最終的なノーツリストを作成
+            mergedNotes.sort((a, b) => a.time - b.time);
+            notes = [];
+
+            mergedNotes.forEach(note => {
                 const lane = note.midiNote % LANE_COUNT;
-                const isLong = note.duration > 0.2;
+                const isLong = !isTapOnlyMode && note.duration > 0.2;
                 const type = (!isLong && Math.random() > 0.8) ? 'flick' : 'normal';
                 
                 notes.push({ 
@@ -514,14 +638,60 @@
                 });
             });
 
-            gameState = 'playing';
-            Tone.Transport.start("+1"); // 1秒の猶予を持たせてスタート
+            // カウントダウン処理へ移行
+            gameState = 'countdown';
+            const countdownEl = document.getElementById('countdown-text');
+            const countdownScreen = document.getElementById('countdown-screen');
+            countdownScreen.classList.remove('hidden');
             
-            if (!animationFrameId) {
-                lastTime = performance.now();
-                loop();
+            const steps = ["3", "2", "1", "GO!"];
+            let stepIdx = 0;
+            
+            function nextCountdown() {
+                if (stepIdx < steps.length) {
+                    countdownEl.textContent = steps[stepIdx];
+                    countdownEl.classList.remove('opacity-0', 'scale-50');
+                    countdownEl.classList.add('opacity-100', 'scale-110');
+                    
+                    // カウントダウンの音
+                    synth.triggerAttackRelease(stepIdx === 3 ? "C5" : "C4", "8n", Tone.now());
+                    
+                    setTimeout(() => {
+                        countdownEl.classList.remove('opacity-100', 'scale-110');
+                        countdownEl.classList.add('opacity-0', 'scale-50');
+                        stepIdx++;
+                        setTimeout(nextCountdown, 300);
+                    }, 500);
+                } else {
+                    countdownScreen.classList.add('hidden');
+                    gameState = 'playing';
+                    Tone.Transport.start(); 
+                    
+                    if (!animationFrameId) {
+                        lastTime = performance.now();
+                        loop();
+                    }
+                }
             }
+            
+            nextCountdown();
         });
+
+        // 数値のカウントアップアニメーション用ヘルパー
+        function animateValue(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                } else {
+                    obj.innerHTML = end.toLocaleString();
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
 
         function endGame() {
             gameState = 'result';
@@ -532,12 +702,21 @@
             uiGameHeader.style.opacity = '0';
             uiResultScreen.classList.remove('hidden');
             
-            document.getElementById('result-score').textContent = score.toLocaleString();
-            document.getElementById('result-max-combo').textContent = maxCombo;
-            document.getElementById('result-perfect').textContent = stats.perfect;
-            document.getElementById('result-miss').textContent = stats.miss;
+            // リザルトの数値を一旦0にセット
+            document.getElementById('result-score').textContent = "0";
+            document.getElementById('result-max-combo').textContent = "0";
+            document.getElementById('result-perfect').textContent = "0";
+            document.getElementById('result-miss').textContent = "0";
             
-            setTimeout(() => { uiResultScreen.style.opacity = '1'; }, 50);
+            // フェードインとアニメーションの開始
+            setTimeout(() => { 
+                uiResultScreen.style.opacity = '1'; 
+                
+                animateValue(document.getElementById('result-score'), 0, score, 1500);
+                setTimeout(() => animateValue(document.getElementById('result-max-combo'), 0, maxCombo, 1000), 800);
+                setTimeout(() => animateValue(document.getElementById('result-perfect'), 0, stats.perfect, 1000), 1200);
+                setTimeout(() => animateValue(document.getElementById('result-miss'), 0, stats.miss, 1000), 1600);
+            }, 50);
         }
 
         document.getElementById('retry-btn').addEventListener('click', () => {
@@ -693,23 +872,89 @@
             });
         }
 
+        // --- 入力処理（キーボード・タッチ・マウス） ---
+        let kbKeys = [false, false, false, false];
+        let touchKeys = [false, false, false, false];
+
+        function updateActiveKeys() {
+            for (let i = 0; i < LANE_COUNT; i++) {
+                const isActive = kbKeys[i] || touchKeys[i];
+                if (isActive && !activeKeys[i]) {
+                    activeKeys[i] = true;
+                    laneEffects[i] = 1.0;
+                    keyUIs[i].classList.add('active');
+                    if (gameState === 'playing') handleHit(i);
+                } else if (!isActive && activeKeys[i]) {
+                    activeKeys[i] = false;
+                    keyUIs[i].classList.remove('active');
+                }
+            }
+        }
+
         window.addEventListener('keydown', (e) => {
             const lane = KEY_MAP[e.key];
-            if (lane !== undefined && !activeKeys[lane]) {
-                activeKeys[lane] = true;
-                laneEffects[lane] = 1.0;
-                keyUIs[lane].classList.add('active');
-                if (gameState === 'playing') handleHit(lane);
+            if (lane !== undefined && !kbKeys[lane]) {
+                kbKeys[lane] = true;
+                updateActiveKeys();
             }
         });
 
         window.addEventListener('keyup', (e) => {
             const lane = KEY_MAP[e.key];
             if (lane !== undefined) {
-                activeKeys[lane] = false;
-            keyUIs[lane].classList.remove('active');
+                kbKeys[lane] = false;
+                updateActiveKeys();
+            }
+        });
+
+        function getLaneFromX(x) {
+            const sectionWidth = width / LANE_COUNT;
+            return Math.max(0, Math.min(LANE_COUNT - 1, Math.floor(x / sectionWidth)));
         }
-    });
+
+        function handleTouch(e) {
+            if (gameState !== 'playing') return;
+            e.preventDefault();
+            const newTouchKeys = [false, false, false, false];
+            for (let i = 0; i < e.touches.length; i++) {
+                const touch = e.touches[i];
+                const lane = getLaneFromX(touch.clientX);
+                newTouchKeys[lane] = true;
+            }
+            for (let i = 0; i < LANE_COUNT; i++) {
+                touchKeys[i] = newTouchKeys[i];
+            }
+            updateActiveKeys();
+        }
+
+        canvas.addEventListener('touchstart', handleTouch, { passive: false });
+        canvas.addEventListener('touchmove', handleTouch, { passive: false });
+        canvas.addEventListener('touchend', handleTouch, { passive: false });
+        canvas.addEventListener('touchcancel', handleTouch, { passive: false });
+
+        let isMouseDown = false;
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameState !== 'playing') return;
+            isMouseDown = true;
+            const lane = getLaneFromX(e.clientX);
+            touchKeys[lane] = true;
+            updateActiveKeys();
+        });
+        canvas.addEventListener('mousemove', (e) => {
+            if (gameState !== 'playing' || !isMouseDown) return;
+            const lane = getLaneFromX(e.clientX);
+            const newTouchKeys = [false, false, false, false];
+            newTouchKeys[lane] = true;
+            for (let i = 0; i < LANE_COUNT; i++) touchKeys[i] = newTouchKeys[i];
+            updateActiveKeys();
+        });
+        const handleMouseUp = () => {
+            isMouseDown = false;
+            for (let i = 0; i < LANE_COUNT; i++) touchKeys[i] = false;
+            updateActiveKeys();
+        };
+        canvas.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('mouseleave', handleMouseUp);
 
     // --- 描画処理 (3D Perspective) ---
     function hexToRgba(hex, alpha) {
@@ -954,6 +1199,33 @@
                             ctx.lineWidth = 1;
                             ctx.stroke();
                             ctx.globalAlpha = 1.0;
+
+                            // 結合された元のノーツの区切り（節）を描画
+                            if (note.subNotes && note.subNotes.length > 0) {
+                                note.subNotes.forEach(subTime => {
+                                    const subTimeDiff = subTime - currentTime;
+                                    let subZ = subTimeDiff * NOTE_SPEED;
+                                    
+                                    // 判定ラインを過ぎた節は描画しない（ホールド中のため）
+                                    if (subZ < 0) return;
+                                    if (subZ > 10000 || subZ < -500) return;
+
+                                    const pSubL = project(wx1, subZ);
+                                    const pSubR = project(wx2, subZ);
+
+                                    if (pSubL && pSubR) {
+                                        ctx.shadowBlur = 10 * pSubL.scale;
+                                        ctx.shadowColor = COLORS[note.lane];
+                                        ctx.strokeStyle = '#ffffff';
+                                        ctx.lineWidth = Math.max(1, 3 * pSubL.scale);
+                                        ctx.beginPath();
+                                        ctx.moveTo(pSubL.x, pSubL.y);
+                                        ctx.lineTo(pSubR.x, pSubR.y);
+                                        ctx.stroke();
+                                        ctx.shadowBlur = 0;
+                                    }
+                                });
+                            }
                         }
                     }
                 }
@@ -1056,20 +1328,30 @@
 
             drawBackground(dt);
 
-            if (gameState === 'playing') {
-                const currentTime = Tone.Transport.seconds;
-                
-                updateNoteStates(currentTime);
+            if (gameState === 'playing' || gameState === 'countdown') {
+                // カウントダウン中もレーンを描画し、背景と一緒に進んでいるように見せる
                 drawLanes(dt);
+                
+                // カウントダウン中は Tone.Transport.seconds が 0 なのでノーツは奥で待機
+                const currentTime = gameState === 'playing' ? Tone.Transport.seconds : 0;
+                
+                if (gameState === 'playing') {
+                    updateNoteStates(currentTime);
+                }
+                
+                // カウントダウン中もノーツを描画する（初期位置に表示される）
                 drawNotes(currentTime);
                 updateAndDrawEffects(dt);
 
-                if (notes.length > 0) {
-                    const lastNoteTime = notes[notes.length - 1].time + (notes[notes.length - 1].isLong ? notes[notes.length - 1].duration : 0);
-                    if (currentTime > lastNoteTime + 2.0) endGame();
-                } else {
-                    const anyTrackEnd = loadedMidi.duration / parseFloat(document.getElementById('speed-slider').value);
-                    if (currentTime > anyTrackEnd + 2.0) endGame();
+                if (gameState === 'playing') {
+                    if (notes.length > 0) {
+                        const lastNoteTime = notes[notes.length - 1].time + (notes[notes.length - 1].isLong ? notes[notes.length - 1].duration : 0);
+                        if (currentTime > lastNoteTime + 2.0) endGame();
+                    } else {
+                        const speed = parseFloat(document.getElementById('speed-slider').value);
+                        const anyTrackEnd = loadedMidi.duration / speed;
+                        if (currentTime > anyTrackEnd + 2.0) endGame();
+                    }
                 }
             } else if (gameState === 'menu' || gameState === 'result') {
                 updateAndDrawEffects(dt);
@@ -1078,6 +1360,12 @@
 
         // 初期化
         resize();
+        
+        // メニュー画面表示時から背景アニメーションを開始
+        if (!animationFrameId) {
+            lastTime = performance.now();
+            loop();
+        }
         
         // Canvas roundRect Polyfill
         if (!CanvasRenderingContext2D.prototype.roundRect) {
