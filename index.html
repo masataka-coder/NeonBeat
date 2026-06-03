@@ -156,6 +156,12 @@
                         </select>
                     </div>
 
+                    <!-- 軽量モード (背景演出オフ) -->
+                    <div class="mb-4 text-left text-sm text-gray-300 flex items-center justify-between border-b border-[#00e5ff]/30 pb-2">
+                        <span class="text-xs text-[#00e5ff] tracking-widest font-bold">軽量モード (背景演出オフ)</span>
+                        <input type="checkbox" id="low-spec-mode-checkbox" class="w-4 h-4 cursor-pointer accent-[#ff007f]">
+                    </div>
+
                     <!-- 演奏目安時間表示 -->
                     <div class="mb-4 text-left text-sm text-gray-300 flex items-center justify-between border-b border-[#00e5ff]/30 pb-2">
                         <span class="text-xs text-[#00e5ff] tracking-widest font-bold">演奏目安時間</span>
@@ -288,6 +294,7 @@
         let bgTime = 0; // 背景アニメーション用の時間変数
         let currentBpm = 120; // 演出同期用のテンポ
         let cameraShake = 0.0; // カメラ揺れ効果用
+        let isLowSpecMode = false; // 軽量モード (背景演出オフ)
 
         let themeConfig = {
             primaryColor: '#ff007f',
@@ -907,6 +914,11 @@
             updateDurationDisplay();
         });
 
+        // 軽量モード
+        document.getElementById('low-spec-mode-checkbox').addEventListener('change', (e) => {
+            isLowSpecMode = e.target.checked;
+        });
+
         // --- ゲームスタート ---
         startBtn.addEventListener('click', async () => {
             if (gameState === 'playing' || gameState === 'countdown' || !loadedMidi) return;
@@ -1414,6 +1426,18 @@
             ctx.fillStyle = '#030308';
             ctx.fillRect(0, 0, width, height);
 
+            if (isLowSpecMode) {
+                // 軽量モード：背景演出（星、太陽、山、うねるグリッド床、イコライザー）をすべてスキップ
+                // 空間把握のため、地平線を示す薄い境界線だけを描画
+                ctx.strokeStyle = 'rgba(0, 229, 255, 0.3)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, vanishingY);
+                ctx.lineTo(width, vanishingY);
+                ctx.stroke();
+                return;
+            }
+
             // --- 演出同期用のビートパルス計算 ---
             const isPlaying = gameState === 'playing';
             const currentSeconds = isPlaying ? Tone.Transport.seconds : (bgTime * 1.0);
@@ -1523,22 +1547,32 @@
             ctx.restore();
 
             // --- 4. 波打つサイバーグリッド床 ---
-            const gridZSpacing = 200;
-            const gridXSpacing = 200;
+            const gridZSpacing = 300;
+            const gridXSpacing = 300;
             const gridSpeed = NOTE_SPEED * 0.4;
             const gridOffsetZ = (bgTime * gridSpeed) % gridZSpacing;
             
             const baseGridColor = themeConfig.secondaryColor || '#00e5ff';
             
-            // 縦線
-            ctx.lineWidth = 1 + pulseEffect * 0.5;
-            for (let x = -4000; x <= 4000; x += gridXSpacing) {
-                ctx.strokeStyle = hexToRgba(baseGridColor, 0.12 + pulseEffect * 0.08);
+            // スクロールに同期した横線（縦線の交点としても再利用）のZ座標の事前計算
+            const actualZArray = [];
+            for (let z = 0; z <= 3000; z += gridZSpacing) {
+                const actualZ = z - gridOffsetZ;
+                if (actualZ >= -300) {
+                    actualZArray.push(actualZ);
+                }
+            }
+            
+            // 縦線（横線と同じスクロール座標に合わせることで床全体が一枚のシートとして流れる）
+            ctx.lineWidth = 1 + pulseEffect * 0.4;
+            for (let x = -3000; x <= 3000; x += gridXSpacing) {
+                ctx.strokeStyle = hexToRgba(baseGridColor, 0.10 + pulseEffect * 0.06);
                 ctx.beginPath();
                 let first = true;
-                for (let z = 4000; z >= -200; z -= 200) {
-                    const y = getGridHeight(x, z);
-                    const p = project(x, z, y);
+                for (let i = 0; i < actualZArray.length; i++) {
+                    const az = actualZArray[i];
+                    const y = getGridHeight(x, az);
+                    const p = project(x, az, y);
                     if (p) {
                         if (first) {
                             ctx.moveTo(p.x, p.y);
@@ -1552,20 +1586,19 @@
             }
             
             // 横線（奥から手前に流れるスキャンパルスの演出）
-            for (let z = 0; z < 4000; z += gridZSpacing) {
-                const actualZ = z - gridOffsetZ;
-                if (actualZ < -200) continue;
+            for (let i = 0; i < actualZArray.length; i++) {
+                const actualZ = actualZArray[i];
                 
                 // 奥から手前に走る光の波（周期1200、幅250ピクセル）
                 const wavePhase = (actualZ + bgTime * NOTE_SPEED * 0.8) % 1200;
                 const scanHighlight = wavePhase < 250 ? (1 - wavePhase / 250) : 0;
                 
-                ctx.lineWidth = (1 + pulseEffect * 0.5) * (1.0 + scanHighlight * 1.8);
-                ctx.strokeStyle = hexToRgba(baseGridColor, 0.12 + pulseEffect * 0.08 + scanHighlight * 0.38);
+                ctx.lineWidth = (1 + pulseEffect * 0.4) * (1.0 + scanHighlight * 1.5);
+                ctx.strokeStyle = hexToRgba(baseGridColor, 0.10 + pulseEffect * 0.06 + scanHighlight * 0.35);
                 
                 ctx.beginPath();
                 let first = true;
-                for (let x = -4000; x <= 4000; x += 200) {
+                for (let x = -3000; x <= 3000; x += 300) {
                     const y = getGridHeight(x, actualZ);
                     const p = project(x, actualZ, y);
                     if (p) {
@@ -1580,57 +1613,60 @@
                 ctx.stroke();
             }
 
-            // 脈動するグリッド交点ドット (Intersection Dots) の描画
+            // 脈動するグリッド交点ドット (Intersection Dots) の描画（Path Batching による高速化）
             ctx.save();
             const dotColor = themeConfig.primaryColor || '#ff007f';
             const trackWidth = LANE_COUNT * laneWorldWidth;
-            for (let z = 200; z <= 2400; z += 200) {
-                // 手前のZのみ表示（パフォーマンス向上のため）
-                const actualZ = z - gridOffsetZ;
-                if (actualZ < 0 || actualZ > 2400) continue;
+            
+            ctx.fillStyle = hexToRgba(dotColor, 0.22 + pulseEffect * 0.50);
+            ctx.beginPath();
+            
+            for (let i = 0; i < actualZArray.length; i++) {
+                const actualZ = actualZArray[i];
+                if (actualZ < 0 || actualZ > 2000) continue; // 手前エリアに絞る
 
                 const scale = projD / (actualZ - cameraZ);
                 if (scale <= 0) continue;
 
                 // ビートで拡大・発光するサイズ
-                const dotRadius = (1.5 + pulseEffect * 2.5) * scale;
-                ctx.fillStyle = hexToRgba(dotColor, 0.25 + pulseEffect * 0.55);
+                const dotRadius = (1.5 + pulseEffect * 2.0) * scale;
 
-                for (let x = -3000; x <= 3000; x += 200) {
-                    // レーン中央付近は描画しない（プレイエリアを邪魔しないようにする）
+                for (let x = -3000; x <= 3000; x += 300) {
+                    // レーン中央付近（プレイエリア）は描画しない
                     if (Math.abs(x) < trackWidth / 2 + 100) continue;
 
                     const y = getGridHeight(x, actualZ);
                     const p = project(x, actualZ, y);
                     if (p) {
-                        ctx.beginPath();
+                        // パス同士が線で繋がらないように moveTo を挟んでから arc を追加
+                        ctx.moveTo(p.x + dotRadius, p.y);
                         ctx.arc(p.x, p.y, dotRadius, 0, Math.PI * 2);
-                        ctx.fill();
                     }
                 }
             }
+            ctx.fill(); // 全交点ドットを 1 回の命令で一括描画して高速化
             ctx.restore();
 
-            // ネオン境界線（ガードレール）の描画
+            // ネオン境界線（ガードレール）の描画（描画ステップ数を半減させて軽量化）
             ctx.save();
             const guardrailColor = themeConfig.primaryColor || '#ff007f';
             const trackWidthVal = LANE_COUNT * laneWorldWidth;
             const boundaryX1 = lanesStartX;
             const boundaryX2 = lanesStartX + trackWidthVal;
             
-            // ネオン発光効果の設定
-            ctx.shadowBlur = 12 + pulseEffect * 12;
+            // ネオン発光効果（shadowBlur は負荷が高いため少し控えめに調整）
+            ctx.shadowBlur = 8 + pulseEffect * 8;
             ctx.shadowColor = guardrailColor;
             ctx.globalCompositeOperation = 'screen';
             
-            // 左側と右側の境界線をそれぞれ太線（ぼかし）と細線（芯）で二重描画してネオン感を出す
             [boundaryX1, boundaryX2].forEach(bx => {
                 // 1回目：太い半透明の線（光の広がり）
-                ctx.lineWidth = 6 + pulseEffect * 2;
-                ctx.strokeStyle = hexToRgba(guardrailColor, 0.4 + pulseEffect * 0.2);
+                ctx.lineWidth = 5 + pulseEffect * 1.5;
+                ctx.strokeStyle = hexToRgba(guardrailColor, 0.35 + pulseEffect * 0.15);
                 ctx.beginPath();
                 let first = true;
-                for (let z = 4000; z >= -400; z -= 100) {
+                // ステップを 200 に緩和
+                for (let z = 3000; z >= -400; z -= 200) {
                     const y = getGridHeight(bx, z);
                     const p = project(bx, z, y);
                     if (p) {
@@ -1645,11 +1681,11 @@
                 ctx.stroke();
 
                 // 2回目：細い芯の線
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 1.5;
                 ctx.strokeStyle = '#ffffff'; // 芯は白くすることで強い発光感を出す
                 ctx.beginPath();
                 first = true;
-                for (let z = 4000; z >= -400; z -= 100) {
+                for (let z = 3000; z >= -400; z -= 200) {
                     const y = getGridHeight(bx, z);
                     const p = project(bx, z, y);
                     if (p) {
