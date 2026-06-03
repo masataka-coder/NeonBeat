@@ -74,11 +74,15 @@
         <!-- ヘッダー（プレイ中のみ表示） -->
         <div id="game-header" class="flex justify-between items-start hidden transition-opacity duration-500">
             <div>
-                <p class="text-sm md:text-lg text-[#00e5ff] tracking-widest mb-[-5px]">SCORE</p>
+                <p class="text-sm md:text-lg text-[#00e5ff] tracking-widest mb-[-5px]">SCORE / スコア</p>
                 <p class="text-4xl md:text-6xl font-black text-white drop-shadow-[0_0_10px_rgba(0,229,255,0.8)]" id="score-display">0</p>
             </div>
+            <div class="text-center">
+                <p class="text-sm md:text-lg text-gray-400 tracking-widest mb-[-5px]">TIME / 残り時間</p>
+                <p class="text-3xl md:text-5xl font-mono font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" id="time-display">0:00</p>
+            </div>
             <div class="text-right">
-                <p class="text-sm md:text-lg text-[#ff007f] tracking-widest mb-[-5px]">COMBO</p>
+                <p class="text-sm md:text-lg text-[#ff007f] tracking-widest mb-[-5px]">COMBO / コンボ</p>
                 <p class="text-5xl md:text-7xl font-black text-white drop-shadow-[0_0_15px_rgba(255,0,127,0.8)]" id="combo-display">0</p>
             </div>
         </div>
@@ -102,48 +106,65 @@
                     <input type="file" id="midi-upload" accept=".mid,.midi" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                     <div class="flex flex-col items-center pointer-events-none transition-transform group-hover:scale-105">
                         <svg class="w-10 h-10 mb-2 text-gray-400 group-hover:text-[#00e5ff] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                        <p class="text-base font-bold text-gray-200">DROP MIDI FILE HERE</p>
-                        <p class="text-xs text-gray-500 mt-1">or click to browse</p>
+                        <p class="text-base font-bold text-gray-200">ここにMIDIファイルをドロップ</p>
+                        <p class="text-xs text-gray-500 mt-1">またはクリックしてファイルを選択</p>
                     </div>
                 </div>
 
-                <!-- サンプル曲ボタン -->
-                <button id="play-sample-btn" class="w-full py-3 mb-4 rounded-xl font-bold text-md border border-[#00e5ff]/40 text-[#00e5ff] hover:bg-[#00e5ff]/10 hover:border-[#00e5ff] transition-all flex items-center justify-center gap-2 pointer-events-auto">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    PLAY SAMPLE SONG (NEON BEAT THEME)
-                </button>
+                <!-- サンプル曲選択セクション -->
+                <div id="sample-section" class="w-full mb-4 flex-shrink-0 flex flex-col gap-2 pointer-events-auto">
+                    <label class="block text-xs text-[#00e5ff] tracking-widest text-left font-bold border-b border-[#00e5ff]/30 pb-1">サンプル曲の選択</label>
+                    <div class="flex gap-2 w-full">
+                        <select id="sample-song-select" class="flex-grow bg-gray-800/60 border border-gray-600 rounded-xl p-3 text-sm text-[#00e5ff] font-bold focus:outline-none focus:border-[#00e5ff] cursor-pointer hover:bg-gray-700/50 transition">
+                            <option value="neon_beat" class="bg-gray-900 text-[#00e5ff]">Neon Beat Theme (オリジナル曲)</option>
+                            <option value="neon_highway" class="bg-gray-900 text-[#00e5ff]">Neon Highway (チル・シンセウェーブ)</option>
+                            <option value="cyber_runner" class="bg-gray-900 text-[#00e5ff]">Cyber Runner (高速サイバーパンク)</option>
+                            <option value="retro_future" class="bg-gray-900 text-[#00e5ff]">Retro Future (アップビート・エレクトロ)</option>
+                        </select>
+                        <button id="play-sample-btn" class="px-5 rounded-xl font-bold text-sm bg-[#00e5ff]/20 border border-[#00e5ff] text-[#00e5ff] hover:bg-[#00e5ff]/30 transition-all flex items-center justify-center gap-1.5 flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
+                            読み込み
+                        </button>
+                    </div>
+                </div>
 
                 <!-- セットアップパネル (初期非表示) -->
                 <div id="setup-panel" class="hidden w-full mb-4 bg-black/40 p-4 rounded-xl border border-gray-700 flex-shrink-0">
                     <div class="mb-4">
-                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">SELECT TRACKS</p>
+                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">トラックの選択</p>
                         <div id="track-list" class="flex flex-col gap-1.5 max-h-32 overflow-y-auto text-left text-sm text-gray-300 custom-scrollbar pr-2">
                             <!-- トラックリストがここに生成されます -->
                         </div>
                     </div>
                     
                     <div class="mb-4">
-                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">SELECT INSTRUMENT</p>
+                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">使用する楽器</p>
                         <select id="instrument-select" class="w-full bg-gray-800/50 border border-gray-600 rounded p-2 text-sm text-[#39ff14] font-bold focus:outline-none focus:border-[#00e5ff] cursor-pointer hover:bg-gray-700/50 transition">
-                            <option value="synth">Basic Synth</option>
-                            <option value="fmsynth">FM Synth (Electronic)</option>
-                            <option value="amsynth">AM Synth (Retro)</option>
-                            <option value="duosynth">Duo Synth (Thick)</option>
+                            <option value="synth">基本シンセ (Basic Synth)</option>
+                            <option value="fmsynth">FMシンセ (FM Synth - Electronic)</option>
+                            <option value="amsynth">AMシンセ (AM Synth - Retro)</option>
+                            <option value="duosynth">Duoシンセ (Duo Synth - Thick)</option>
                         </select>
                     </div>
 
                     <div class="mb-4">
-                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">GAME MODE</p>
+                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">ゲームモード</p>
                         <select id="game-mode-select" class="w-full bg-gray-800/50 border border-gray-600 rounded p-2 text-sm text-white font-bold focus:outline-none focus:border-[#00e5ff] cursor-pointer hover:bg-gray-700/50 transition">
-                            <option value="normal">NORMAL MODE</option>
-                            <option value="easy">EASY MODE (LONG NOTES ONLY)</option>
-                            <option value="tap">TAP ONLY MODE (NO LONG NOTES)</option>
+                            <option value="normal">ノーマルモード</option>
+                            <option value="easy">イージーモード (ロングノーツのみ)</option>
+                            <option value="tap">タップ専用モード (ロングノーツなし)</option>
                         </select>
+                    </div>
+
+                    <!-- 演奏目安時間表示 -->
+                    <div class="mb-4 text-left text-sm text-gray-300 flex items-center justify-between border-b border-[#00e5ff]/30 pb-2">
+                        <span class="text-xs text-[#00e5ff] tracking-widest font-bold">演奏目安時間</span>
+                        <span id="duration-display" class="font-bold text-white font-mono text-base">-</span>
                     </div>
 
                     <div>
                         <div class="flex justify-between items-center mb-1">
-                            <p class="text-xs text-[#ff007f] tracking-widest text-left font-bold">TEMPO (SPEED)</p>
+                            <p class="text-xs text-[#ff007f] tracking-widest text-left font-bold">再生速度 (テンポ)</p>
                             <p class="text-sm text-white font-black" id="speed-display">1.0x</p>
                         </div>
                         <input type="range" id="speed-slider" min="0.1" max="2.0" step="0.1" value="1.0" class="w-full accent-[#ff007f] cursor-pointer">
@@ -154,12 +175,12 @@
                 
                 <!-- スタートボタン -->
                 <button id="start-btn" class="w-full py-4 rounded-xl font-bold text-xl bg-gradient-to-r from-[#00e5ff] to-[#ff007f] text-white opacity-50 cursor-not-allowed transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,0,127,0.4)] hover:shadow-[0_0_30px_rgba(0,229,255,0.6)] flex-shrink-0" disabled>
-                    INITIALIZE & START
+                    ゲームスタート
                 </button>
 
                 <!-- 操作説明 -->
                 <div class="mt-6 text-left w-full flex-shrink-0">
-                    <p class="mb-3 text-xs text-gray-400 tracking-widest text-center">CONTROLS</p>
+                    <p class="mb-3 text-xs text-gray-400 tracking-widest text-center">操作キー設定</p>
                     <div class="flex justify-center gap-4">
                         <div class="key-btn w-12 h-12 border border-gray-600 rounded-lg flex items-center justify-center font-bold text-xl text-gray-300" id="key-ui-0">D</div>
                         <div class="key-btn w-12 h-12 border border-gray-600 rounded-lg flex items-center justify-center font-bold text-xl text-gray-300" id="key-ui-1">F</div>
@@ -173,16 +194,16 @@
         <!-- リザルト画面 -->
         <div id="result-screen" class="absolute inset-0 flex items-center justify-center pointer-events-auto hidden bg-black/80 backdrop-blur-md opacity-0 transition-opacity duration-700">
             <div class="glass-panel neon-border-blue p-10 rounded-3xl flex flex-col items-center max-w-lg w-full text-center mx-4">
-                <h2 class="text-4xl md:text-5xl font-black mb-2 text-white drop-shadow-[0_0_10px_#00e5ff]">TRACK CLEARED</h2>
+                <h2 class="text-4xl md:text-5xl font-black mb-2 text-white drop-shadow-[0_0_10px_#00e5ff]">トラッククリア！</h2>
                 <p class="text-gray-400 mb-8 tracking-widest">RESULTS</p>
                 
                 <div class="grid grid-cols-2 gap-x-12 gap-y-6 w-full mb-10 text-left border-y border-gray-700 py-6">
                     <div>
-                        <p class="text-xs text-gray-400 tracking-widest">SCORE</p>
+                        <p class="text-xs text-gray-400 tracking-widest">SCORE / スコア</p>
                         <p class="text-3xl font-bold text-white drop-shadow-[0_0_5px_#00e5ff]" id="result-score">0</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-400 tracking-widest">MAX COMBO</p>
+                        <p class="text-xs text-gray-400 tracking-widest">MAX COMBO / 最大コンボ</p>
                         <p class="text-3xl font-bold text-white drop-shadow-[0_0_5px_#ff007f]" id="result-max-combo">0</p>
                     </div>
                     <div>
@@ -196,7 +217,7 @@
                 </div>
                 
                 <button id="retry-btn" class="px-8 py-4 rounded-xl font-bold text-lg border-2 border-[#00e5ff] text-[#00e5ff] hover:bg-[#00e5ff] hover:text-black transition-all hover:shadow-[0_0_20px_#00e5ff] w-full">
-                    PLAY ANOTHER TRACK
+                    曲を選び直す
                 </button>
             </div>
         </div>
@@ -222,6 +243,7 @@
         const startBtn = document.getElementById('start-btn');
         const dropZone = document.getElementById('drop-zone');
         const playSampleBtn = document.getElementById('play-sample-btn');
+        const sampleSection = document.getElementById('sample-section');
         const setupPanel = document.getElementById('setup-panel');
         const scoreDisplay = document.getElementById('score-display');
         const comboDisplay = document.getElementById('combo-display');
@@ -264,6 +286,95 @@
         let lastTime = 0;
         let animationFrameId = null;
         let bgTime = 0; // 背景アニメーション用の時間変数
+        let currentBpm = 120; // 演出同期用のテンポ
+        let cameraShake = 0.0; // カメラ揺れ効果用
+
+        let themeConfig = {
+            primaryColor: '#ff007f',
+            secondaryColor: '#00e5ff',
+            mountainColors: ['#ff007f', '#00e5ff', '#39ff14'],
+            sunColors: ['#ff0055', '#ff5500', '#ffcc00'],
+            starSpeedMultiplier: 1.0,
+            gridWaveSpeed: 2.5,
+            gridWaveHeight: 90,
+            gridWaveFreqX: 0.005,
+            gridWaveFreqZ: 0.003,
+            laserColors: ['255, 0, 127', '0, 229, 255'],
+            horizonColor: '#00e5ff'
+        };
+
+        function applyTheme(songKey) {
+            if (songKey === 'neon_highway') {
+                themeConfig = {
+                    primaryColor: '#8a2be2',
+                    secondaryColor: '#ff00ff',
+                    mountainColors: ['#8a2be2', '#ff00ff', '#00e5ff'],
+                    sunColors: ['#4b0082', '#8a2be2', '#da70d6'],
+                    starSpeedMultiplier: 0.4,
+                    gridWaveSpeed: 1.2,
+                    gridWaveHeight: 50,
+                    gridWaveFreqX: 0.003,
+                    gridWaveFreqZ: 0.002,
+                    laserColors: ['138, 43, 226', '255, 0, 255'],
+                    horizonColor: '#ff00ff'
+                };
+                COLORS[0] = '#8a2be2'; COLORS[1] = '#ff00ff'; COLORS[2] = '#00e5ff'; COLORS[3] = '#da70d6';
+                currentBpm = 110;
+            } else if (songKey === 'cyber_runner') {
+                themeConfig = {
+                    primaryColor: '#ff003c',
+                    secondaryColor: '#ffaa00',
+                    mountainColors: ['#ff003c', '#ffaa00', '#ff0000'],
+                    sunColors: ['#ff0000', '#ff3c00', '#ffaa00'],
+                    starSpeedMultiplier: 2.5,
+                    gridWaveSpeed: 4.5,
+                    gridWaveHeight: 120,
+                    gridWaveFreqX: 0.009,
+                    gridWaveFreqZ: 0.005,
+                    laserColors: ['255, 0, 60', '255, 170, 0'],
+                    horizonColor: '#ff003c'
+                };
+                COLORS[0] = '#ff003c'; COLORS[1] = '#ffaa00'; COLORS[2] = '#ff0000'; COLORS[3] = '#ff5500';
+                currentBpm = 135;
+            } else if (songKey === 'retro_future') {
+                themeConfig = {
+                    primaryColor: '#39ff14',
+                    secondaryColor: '#ffff00',
+                    mountainColors: ['#39ff14', '#ffff00', '#00e5ff'],
+                    sunColors: ['#00ffcc', '#39ff14', '#ffff00'],
+                    starSpeedMultiplier: 1.2,
+                    gridWaveSpeed: 3.0,
+                    gridWaveHeight: 80,
+                    gridWaveFreqX: 0.008,
+                    gridWaveFreqZ: 0.004,
+                    laserColors: ['57, 255, 20', '255, 255, 0'],
+                    horizonColor: '#39ff14'
+                };
+                COLORS[0] = '#39ff14'; COLORS[1] = '#ffff00'; COLORS[2] = '#00ffcc'; COLORS[3] = '#00e5ff';
+                currentBpm = 120;
+            } else {
+                themeConfig = {
+                    primaryColor: '#ff007f',
+                    secondaryColor: '#00e5ff',
+                    mountainColors: ['#ff007f', '#00e5ff', '#39ff14'],
+                    sunColors: ['#ff0055', '#ff5500', '#ffcc00'],
+                    starSpeedMultiplier: 1.0,
+                    gridWaveSpeed: 2.5,
+                    gridWaveHeight: 90,
+                    gridWaveFreqX: 0.005,
+                    gridWaveFreqZ: 0.003,
+                    laserColors: ['255, 0, 127', '0, 229, 255'],
+                    horizonColor: '#00e5ff'
+                };
+                COLORS[0] = '#ff007f'; COLORS[1] = '#00e5ff'; COLORS[2] = '#39ff14'; COLORS[3] = '#ffff00';
+                currentBpm = 120;
+            }
+            
+            // UIのキー設定ボタンやヘッダーのボーダー色などの要素も連動してネオンカラーを調整可能
+            const root = document.documentElement;
+            root.style.setProperty('--primary-neon', themeConfig.primaryColor);
+            root.style.setProperty('--secondary-neon', themeConfig.secondaryColor);
+        }
 
         // --- 3D Projection & Scaling ---
         function resize() {
@@ -293,12 +404,18 @@
         window.addEventListener('resize', resize);
 
         // ワールド座標(X, Z)から画面座標(X, Y, スケール)への射影関数
-        function project(worldX, worldZ) {
+        function project(worldX, worldZ, worldY = 0) {
+            let shakeX = 0;
+            let shakeY = 0;
+            if (cameraShake > 0) {
+                shakeX = (Math.random() - 0.5) * cameraShake * 18;
+                shakeY = (Math.random() - 0.5) * cameraShake * 18;
+            }
             const dz = worldZ - cameraZ;
             if (dz <= 10) return null; // カメラより後ろは描画しない
             const scale = projD / dz;
-            const screenX = width / 2 + worldX * scale;
-            const screenY = vanishingY + yOffset * scale;
+            const screenX = width / 2 + (worldX + shakeX) * scale;
+            const screenY = vanishingY + (yOffset + worldY + shakeY) * scale;
             return { x: screenX, y: screenY, scale: scale };
         }
 
@@ -345,11 +462,51 @@
             synth.connect(limiter);
         }
 
+        // MIDIの曲調（テンポ・音符密度・調性）を解析して背景演出テーマを適用する
+        function analyzeMidiMoodAndApplyTheme(midi) {
+            // テンポ (BPM) の取得
+            const bpm = (midi.header && midi.header.tempos && midi.header.tempos[0]) ? midi.header.tempos[0].bpm : 120;
+            
+            // 音符の密度（1秒間あたりの平均ノート数）を計算
+            let totalNotes = 0;
+            midi.tracks.forEach(track => {
+                totalNotes += track.notes.length;
+            });
+            const duration = midi.duration || 60;
+            const notesPerSecond = totalNotes / duration;
+            
+            // 長調(Major)か短調(Minor)かの判定
+            let isMajor = true;
+            if (midi.header && midi.header.keySignatures && midi.header.keySignatures[0]) {
+                const keySig = midi.header.keySignatures[0];
+                if (keySig.scale === 'minor') {
+                    isMajor = false;
+                }
+            }
+            
+            console.log(`MIDI Analysis -> BPM: ${Math.round(bpm)}, Notes/Sec: ${notesPerSecond.toFixed(2)}, IsMajor: ${isMajor}`);
+            
+            // 曲調パラメータに基づいて背景テーマを分類適用
+            if (bpm >= 130 || notesPerSecond >= 7.5) {
+                // 高速または高密度 -> Cyber Runner (赤/オレンジ警告色、超高速、険しい山)
+                applyTheme('cyber_runner');
+            } else if (bpm <= 92 || notesPerSecond <= 2.8) {
+                // 低速または低密度 -> Neon Highway (紫/マゼンタ、ゆったり、穏やかな波)
+                applyTheme('neon_highway');
+            } else if (isMajor) {
+                // 中速で明るい長調 -> Retro Future (黄緑/黄色、弾むようなポップな波)
+                applyTheme('retro_future');
+            } else {
+                // 中速でクールな短調 -> Neon Beat (ピンク/シアン、標準)
+                applyTheme('neon_beat');
+            }
+        }
+
         // --- MIDIファイルの解析とUI更新 ---
         async function processFile(file) {
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                await processMidiArrayBuffer(arrayBuffer, file.name);
+                await processMidiArrayBuffer(arrayBuffer, file.name, false);
             } catch (err) {
                 console.error(err);
                 fileNameDisplay.textContent = "ERROR: INVALID MIDI FILE";
@@ -357,14 +514,30 @@
             }
         }
 
-        async function processMidiArrayBuffer(arrayBuffer, name) {
+        async function processMidiArrayBuffer(arrayBuffer, name, isSample = false) {
+            try {
+                const midi = new Midi(arrayBuffer);
+                processMidiObject(midi, name, isSample);
+            } catch (err) {
+                console.error(err);
+                fileNameDisplay.textContent = "ERROR: INVALID MIDI FILE";
+                fileNameDisplay.className = "text-sm text-red-500 mb-4 h-6 font-bold";
+            }
+        }
+
+        function processMidiObject(midi, name, isSample = false) {
             fileNameDisplay.textContent = `LOADING: ${name}...`;
             fileNameDisplay.className = "text-sm text-[#00e5ff] mb-4 h-6 font-bold";
             startBtn.disabled = true;
             setupPanel.classList.add('hidden');
             
             try {
-                loadedMidi = new Midi(arrayBuffer);
+                loadedMidi = midi;
+                
+                // 外部MIDIファイルの場合のみ曲調自動解析を行う
+                if (!isSample) {
+                    analyzeMidiMoodAndApplyTheme(loadedMidi);
+                }
                 
                 let validTracks = 0;
                 const trackList = document.getElementById('track-list');
@@ -380,7 +553,7 @@
                         checkbox.type = 'checkbox';
                         checkbox.value = index;
                         checkbox.className = 'accent-[#00e5ff] w-4 h-4 cursor-pointer';
-                        checkbox.checked = track.channel !== 9; // 9(内部的には10ch)はドラム
+                        checkbox.checked = (validTracks === 1); // トラック1のみデフォルトでチェックする
                         
                         const text = document.createElement('span');
                         const instName = track.instrument ? track.instrument.name : 'Unknown';
@@ -402,18 +575,26 @@
                 }
 
                 dropZone.classList.add('hidden');
-                if (playSampleBtn) playSampleBtn.classList.add('hidden');
+                if (sampleSection) sampleSection.classList.add('hidden');
                 setupPanel.classList.remove('hidden');
 
                 fileNameDisplay.textContent = `READY: ${name}`;
                 fileNameDisplay.className = "text-sm text-[#39ff14] mb-4 h-6 font-bold flex justify-center items-center gap-2";
                 
+                // BPMの取得と演奏時間の更新
+                if (loadedMidi.header && loadedMidi.header.tempos && loadedMidi.header.tempos[0]) {
+                    currentBpm = loadedMidi.header.tempos[0].bpm;
+                } else {
+                    currentBpm = 120;
+                }
+                updateDurationDisplay();
+
                 const resetBtn = document.createElement('button');
-                resetBtn.textContent = 'CHANGE FILE';
+                resetBtn.textContent = 'ファイル変更';
                 resetBtn.className = 'text-xs bg-gray-700/80 px-3 py-1 rounded-full hover:bg-gray-600 text-white ml-2 transition-colors border border-gray-500';
                 resetBtn.onclick = () => {
                     dropZone.classList.remove('hidden');
-                    if (playSampleBtn) playSampleBtn.classList.remove('hidden');
+                    if (sampleSection) sampleSection.classList.remove('hidden');
                     setupPanel.classList.add('hidden');
                     fileNameDisplay.innerHTML = '';
                     startBtn.disabled = true;
@@ -438,7 +619,7 @@
         });
 
         // サンプル曲読み込みイベント
-        const SAMPLE_MIDI_BASE64 = "TVRoZAAAAAYAAQAEA8BNVHJrAAAACwD/UQMHoSAA/y8ATVRyawAAA3oA/wMRTGVhZCBTeW50aCAoUExBWSkAkEpkhVCASmSBcJBNZIVQgE1kgXCQUWSFUIBRZIFwkE9kg2CAT2QAkE1kg2CATWQAkFJkiyCAUmSDYJBPZIVQgE9kgXCQTWSDYIBNZACQSmSDYIBKZACQSGSFUIBIZIFwkExkhVCATGSBcJBPZIVQgE9kgXCQTWSDYIBNZACQTGSDYIBKZACQUWSPAIBRZACQTGSFUIBMZIFwkEhkg2CASGQAkEVkg2CARWQAkEpkhVCASmSBcJBNZIVQgE1kgXCQUWSFUIBRZIFwkE9kg2CAT2QAkE1kg2CATWQAkFJkiyCAUmSDYJBPZIVQgE9kgXCQTWSDYIBNZACQSmSDYIBKZACQSGSFUIBIZIFwkExkhVCATGSBcJBPZIVQgE9kgXCQTWSDYIBNZACQTGSDYIBKZACQUWSLIIBRZINgkElkhVCASWSBcJBMZINggExkAJBPZINggE9kAJBKZINggEpkAJBKZINggEpkAJBNZINggE1kAJBKZINggEpkAJBRZINggFFkAJBNZINggE1kAJBPZINggE9kAJBNZINggE1kAJBSZINggFJkAJBSZINggFJkAJBKZINggEpkAJBSZINggFJkAJBPZINggE9kAJBNZINggE1kAJBKZIdAgEpkAJBIZINggEhkAJBIZINggEhkAJBMZINggExkAJBIZINggEhkAJBPZINggE9kAJBMZINggExkAJBNZINggE1kAJBMZINggExkAJBRZINggFFkAJBRZINggFFkAJBIZINggEhkAJBFZINggEVkAJBMZINggExkAJBIZINggEhkAJBFZIdAgEVkAJBKZINggEpkAJBKZINggEpkAJBNZINggE1kAJBKZINggEpkAJBRZINggFFkAJBNZINggE1kAJBPZINggE9kAJBNZINggE1kAJBSZINggFJkAJBSZINggFJkAJBKZINggEpkAJBSZINggFJkAJBPZINggE9kAJBNZINggE1kAJBKZIdAgEpkAJBIZINggEhkAJBIZINggEhkAJBMZINggExkAJBIZINggEhkAJBPZINggE9kAJBMZINggExkAJBNZINggE1kAJBMZINggExkAJBKZINggEpkAJBNZINggE1kAJBRZINggFFkAJBWZINggFZkAJBWZI8AgFZkAP8vAE1UcmsAAAR9AP8DEFN5bnRoIEJhc3MgKEJHTSkAmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmSRQgwCJJFBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmSRQgwCJJFBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmSRQgwCJJFBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQjwCJJlAA/y8ATVRyawAAAacA/wMPU3ludGggUGFkIChCR00pAJkyQQCZNUEAmTlBngCJMkEAiTVBAIk5QQCZLkEAmTJBAJk1QZ4AiS5BAIkyQQCJNUEAmTBBAJk0QQCZN0GeAIkwQQCJNEEAiTdBAJktQQCZMEEAmTRBngCJLUEAiTBBAIk0QQCZMkEAmTVBAJk5QZ4AiTJBAIk1QQCJOUEAmS5BAJkyQQCZNUGeAIkuQQCJMkEAiTVBAJkwQQCZNEEAmTdBngCJMEEAiTRBAIk3QQCZLUEAmTFBAJk0QZ4AiS1BAIkxQQCJNEEAmTJBAJk1QQCZOUGeAIkyQQCJNUEAiTlBAJkuQQCZMkEAmTVBngCJLkEAiTJBAIk1QQCZMEEAmTRBAJk3QZ4AiTBBAIk0QQCJN0EAmS1BAJkwQQCZNEGeAIktQQCJMEEAiTRBAkyQQCZNUEAmTlBngCJMkEAiTVBAIk5QQCZLkEAmTJBAJk1QZ4AiS5BAIkyQQCJNUEAmTBBAJk0QQCZN0GeAIkwQQCJNEEAiTdBAJkyQQCZNUEAmTlBpUCJMkEAiTVBAIk5QQD/LwA==";
+        const SAMPLE_MIDI_BASE64 = "TVRoZAAAAAYAAQAEA8BNVHJrAAAACwD/UQMHoSAA/y8ATVRyawAAA3oA/wMRTGVhZCBTeW50aCAoUExBWSkAkEpkhVCASmSBcJBNZIVQgE1kgXCQUWSFUIBRZIFwkE9kg2CAT2QAkE1kg2CATWQAkFJkiyCAUmSDYJBPZIVQgE9kgXCQTWSDYIBNZACQSmSDYIBKZACQSGSFUIBIZIFwkExkhVCATGSBcJBPZIVQgE9kgXCQTWSDYIBNZACQTGSDYIBKZACQUWSPAIBRZACQTGSFUIBMZIFwkEhkg2CASGQAkEVkg2CARWQAkEpkhVCASmSBcJBNZIVQgE1kgXCQUWSFUIBRZIFwkE9kg2CAT2QAkE1kg2CATWQAkFJkiyCAUmSDYJBPZIVQgE9kgXCQTWSDYIBNZACQSmSDYIBKZACQSGSFUIBIZIFwkExkhVCATGSBcJBPZIVQgE9kgXCQTWSDYIBNZACQTGSDYIBKZACQUWSLIIBRZINgkElkhVCASWSBcJBMZINggExkAJBPZINggE9kAJBKZINggEpkAJBKZINggEpkAJBNZINggE1kAJBKZINggEpkAJBRZINggFFkAJBNZINggE1kAJBPZINggE9kAJBNZINggE1kAJBSZINggFJkAJBSZINggFJkAJBKZINggEpkAJBSZINggFJkAJBPZINggE9kAJBNZINggE1kAJBKZIdAgEpkAJBIZINggEhkAJBIZINggEhkAJBMZINggExkAJBIZINggEhkAJBPZINggE9kAJBMZINggExkAJBNZINggE1kAJBMZINggExkAJBRZINggFFkAJBRZINggFFkAJBIZINggEhkAJBFZINggEVkAJBMZINggExkAJBIZINggEhkAJBFZIdAgEVkAJBKZINggEpkAJBKZINggEpkAJBNZINggE1kAJBKZINggEpkAJBRZINggFFkAJBNZINggE1kAJBPZINggE9kAJBNZINggE1kAJBSZINggFJkAJBSZINggFJkAJBKZINggEpkAJBSZINggFJkAJBPZINggE9kAJBNZINggE1kAJBKZIdAgEpkAJBIZINggEhkAJBIZINggEhkAJBMZINggExkAJBIZINggEhkAJBPZINggE9kAJBMZINggExkAJBNZINggE1kAJBMZINggExkAJBKZINggEpkAJBNZINggE1kAJBRZINggFFkAJBWZINggFZkAJBWZI8AgFZkAP8vAE1UcmsAAAR9AP8DEFN5bnRoIEJhc3MgKEJHTSkAmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmSRQgwCJJFBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmSRQgwCJJFBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmS1QgwCJLVBgmSFQgwCJIVBgmSRQgwCJJFBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTBQgwCJMFBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS5QgwCJLlBgmSJQgwCJIlBgmS1QgwCJLVBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmTBQgwCJMFBgmSRQgwCJJFBgmS9QgwCJL1BgmSZQgwCJJlBgmTJQgwCJMlBgmSZQgwCJJlBgmTJQgwCJMlBgmSZQjwCJJlAA/y8ATVRyawAAAacA/wMPU3ludGggUGFkIChCR00pAJkyQQCZNUEAmTlBngCJMkEAiTVBAIk5QQCZLkEAmTJBAJk1QZ4AiS5BAIkyQQCJNUEAmTBBAJk0QQCZN0GeAIkwQQCJNEEAiTdBAJktQQCZMEEAmTRBngCJLUEAiTBBAIk0QQCZMkEAmTVBAJk5QZ4AiTJBAIk1QQCJOUEAmS5BAJkyQQCZNUGeA";
 
         function base64ToArrayBuffer(base64) {
             const binaryString = atob(base64);
@@ -450,11 +631,234 @@
             return bytes.buffer;
         }
 
+        function generateOriginalSong(songKey) {
+            const midi = new Midi();
+            let songName = "";
+            let tempo = 120;
+            let melodyNotes = [];
+            let bassNotes = [];
+            
+            if (songKey === 'neon_highway') {
+                songName = "Neon Highway";
+                tempo = 110;
+                
+                const highwayMelody = [
+                    // Am
+                    { midi: 69, time: 0.0, duration: 0.5 }, { midi: 72, time: 0.5, duration: 0.5 },
+                    { midi: 76, time: 1.0, duration: 0.5 }, { midi: 81, time: 1.5, duration: 0.5 },
+                    { midi: 79, time: 2.0, duration: 0.5 }, { midi: 76, time: 2.5, duration: 0.5 },
+                    { midi: 74, time: 3.0, duration: 0.5 }, { midi: 76, time: 3.5, duration: 0.5 },
+                    // G
+                    { midi: 67, time: 4.0, duration: 0.5 }, { midi: 71, time: 4.5, duration: 0.5 },
+                    { midi: 74, time: 5.0, duration: 0.5 }, { midi: 79, time: 5.5, duration: 0.5 },
+                    { midi: 78, time: 6.0, duration: 0.5 }, { midi: 74, time: 6.5, duration: 0.5 },
+                    { midi: 72, time: 7.0, duration: 0.5 }, { midi: 74, time: 7.5, duration: 0.5 },
+                    // F
+                    { midi: 65, time: 8.0, duration: 0.5 }, { midi: 69, time: 8.5, duration: 0.5 },
+                    { midi: 72, time: 9.0, duration: 0.5 }, { midi: 77, time: 9.5, duration: 0.5 },
+                    { midi: 76, time: 10.0, duration: 0.5 }, { midi: 72, time: 10.5, duration: 0.5 },
+                    { midi: 71, time: 11.0, duration: 0.5 }, { midi: 72, time: 11.5, duration: 0.5 },
+                    // Em
+                    { midi: 64, time: 12.0, duration: 0.5 }, { midi: 67, time: 12.5, duration: 0.5 },
+                    { midi: 71, time: 13.0, duration: 0.5 }, { midi: 76, time: 13.5, duration: 0.5 },
+                    { midi: 74, time: 14.0, duration: 0.5 }, { midi: 71, time: 14.5, duration: 0.5 },
+                    { midi: 69, time: 15.0, duration: 0.5 }, { midi: 71, time: 15.5, duration: 0.5 }
+                ];
+                
+                for (let cycle = 0; cycle < 8; cycle++) {
+                    const timeShift = cycle * 16.0;
+                    let midiShift = 0;
+                    let skipNotes = false;
+                    
+                    if (cycle === 2 || cycle === 3 || cycle === 6 || cycle === 7) {
+                        midiShift = 12; // Soaring lead
+                    } else if (cycle === 4 || cycle === 5) {
+                        midiShift = -12; // Subdued lead
+                        skipNotes = true;
+                    }
+                    
+                    highwayMelody.forEach((n, idx) => {
+                        if (skipNotes && idx % 2 === 1) return;
+                        melodyNotes.push({
+                            midi: n.midi + midiShift,
+                            time: n.time + timeShift,
+                            duration: n.duration
+                        });
+                    });
+                }
+                
+                const roots = [45, 43, 41, 40]; // A2, G2, F2, E2
+                for (let cycle = 0; cycle < 8; cycle++) {
+                    const cycleOffset = cycle * 16;
+                    for (let m = 0; m < 4; m++) {
+                        const measureOffset = cycleOffset + m * 4;
+                        const root = roots[m];
+                        let bassRoot = root;
+                        if (cycle === 4 || cycle === 5) {
+                            bassRoot -= 12; // Sub-bass range
+                        }
+                        bassNotes.push({ midi: bassRoot, time: measureOffset, duration: 1.8 });
+                        bassNotes.push({ midi: bassRoot, time: measureOffset + 2.0, duration: 1.8 });
+                    }
+                }
+            } else if (songKey === 'cyber_runner') {
+                songName = "Cyber Runner";
+                tempo = 135;
+                
+                const runnerMotifs = [
+                    [62, 65, 69, 74, 72, 69, 67, 69], // Dm
+                    [70, 74, 77, 82, 81, 77, 74, 77], // Bb
+                    [72, 76, 79, 84, 83, 79, 76, 79], // C
+                    [69, 72, 76, 81, 79, 76, 74, 76]  // Am
+                ];
+                for (let cycle = 0; cycle < 8; cycle++) {
+                    if (cycle === 4 || cycle === 5) continue; // Melody break!
+                    
+                    const cycleOffset = cycle * 16;
+                    const midiShift = (cycle === 2 || cycle === 3 || cycle === 6 || cycle === 7) ? 12 : 0;
+                    
+                    for (let m = 0; m < 4; m++) {
+                        const measureOffset = cycleOffset + m * 4;
+                        const notes = runnerMotifs[m];
+                        notes.forEach((note, index) => {
+                            melodyNotes.push({
+                                midi: note + midiShift,
+                                time: measureOffset + index * 0.5,
+                                duration: 0.45
+                            });
+                        });
+                    }
+                }
+                
+                const runnerRoots = [50, 46, 48, 45]; // D3, Bb2, C3, A2
+                for (let cycle = 0; cycle < 8; cycle++) {
+                    const cycleOffset = cycle * 16;
+                    for (let m = 0; m < 4; m++) {
+                        const measureOffset = cycleOffset + m * 4;
+                        const root = runnerRoots[m];
+                        if (cycle === 4 || cycle === 5) {
+                            // Alternate octaves during the break!
+                            for (let i = 0; i < 8; i++) {
+                                const octaveShift = i % 2 === 1 ? 12 : 0;
+                                bassNotes.push({
+                                    midi: root + octaveShift,
+                                    time: measureOffset + i * 0.5,
+                                    duration: 0.4
+                                });
+                            }
+                        } else {
+                            for (let i = 0; i < 8; i++) {
+                                bassNotes.push({
+                                    midi: root,
+                                    time: measureOffset + i * 0.5,
+                                    duration: 0.4
+                                });
+                            }
+                        }
+                    }
+                }
+            } else if (songKey === 'retro_future') {
+                songName = "Retro Future";
+                tempo = 120;
+                
+                const futureMotifs = [
+                    [64, 64, 71, 69, 67, 66, 67, 64], // Em
+                    [67, 67, 74, 72, 71, 69, 71, 67], // C
+                    [71, 71, 78, 76, 74, 73, 74, 71], // G
+                    [69, 69, 76, 74, 73, 71, 73, 69]  // D
+                ];
+                for (let cycle = 0; cycle < 8; cycle++) {
+                    const cycleOffset = cycle * 16;
+                    let midiShift = 0;
+                    let shortDuration = false;
+                    
+                    if (cycle === 2 || cycle === 3 || cycle === 6 || cycle === 7) {
+                        midiShift = 12;
+                    } else if (cycle === 4 || cycle === 5) {
+                        midiShift = -12;
+                        shortDuration = true;
+                    }
+                    
+                    for (let m = 0; m < 4; m++) {
+                        const measureOffset = cycleOffset + m * 4;
+                        const notes = futureMotifs[m];
+                        const rhythm = [
+                            { t: 0.0, d: 0.9 },
+                            { t: 1.0, d: 0.45 },
+                            { t: 1.5, d: 0.45 },
+                            { t: 2.0, d: 0.9 },
+                            { t: 3.0, d: 0.9 }
+                        ];
+                        rhythm.forEach((r, idx) => {
+                            const note = notes[idx % notes.length];
+                            melodyNotes.push({
+                                midi: note + midiShift,
+                                time: measureOffset + r.t,
+                                duration: shortDuration ? 0.15 : r.d
+                            });
+                        });
+                    }
+                }
+                
+                const futureRoots = [52, 48, 55, 50]; // E3, C3, G3, D3
+                for (let cycle = 0; cycle < 8; cycle++) {
+                    const cycleOffset = cycle * 16;
+                    for (let m = 0; m < 4; m++) {
+                        const measureOffset = cycleOffset + m * 4;
+                        const root = futureRoots[m];
+                        const bassRhythm = [0.0, 1.5, 2.0, 3.0];
+                        bassRhythm.forEach(t => {
+                            bassNotes.push({
+                                midi: root,
+                                time: measureOffset + t,
+                                duration: 0.45
+                            });
+                        });
+                    }
+                }
+            }
+            
+            const beatDuration = 60.0 / tempo;
+            
+            const melodyTrack = midi.addTrack();
+            melodyTrack.name = "Lead Synth";
+            melodyTrack.channel = 0;
+            melodyTrack.instrument = { name: "Lead Synth" };
+            melodyNotes.forEach(n => {
+                melodyTrack.addNote({
+                    midi: n.midi,
+                    time: n.time * beatDuration,
+                    duration: n.duration * beatDuration
+                });
+            });
+            
+            const bassTrack = midi.addTrack();
+            bassTrack.name = "Synth Bass";
+            bassTrack.channel = 1;
+            bassTrack.instrument = { name: "Synth Bass" };
+            bassNotes.forEach(n => {
+                bassTrack.addNote({
+                    midi: n.midi,
+                    time: n.time * beatDuration,
+                    duration: n.duration * beatDuration
+                });
+            });
+            
+            return { midi, name: `${songName} (${tempo} BPM)` };
+        }
+
         if (playSampleBtn) {
             playSampleBtn.addEventListener('click', async () => {
+                const songKey = document.getElementById('sample-song-select').value;
+                applyTheme(songKey);
                 try {
-                    const arrayBuffer = base64ToArrayBuffer(SAMPLE_MIDI_BASE64);
-                    await processMidiArrayBuffer(arrayBuffer, "Neon Beat Theme (Sample)");
+                    if (songKey === 'neon_beat') {
+                        const arrayBuffer = base64ToArrayBuffer(SAMPLE_MIDI_BASE64);
+                        await processMidiArrayBuffer(arrayBuffer, "Neon Beat Theme (Original)", true);
+                    } else {
+                        const { midi, name } = generateOriginalSong(songKey);
+                        processMidiObject(midi, name, true);
+                    }
                 } catch (err) {
                     console.error(err);
                     fileNameDisplay.textContent = "ERROR: COULD NOT LOAD SAMPLE SONG";
@@ -479,9 +883,28 @@
             }
         });
 
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateDurationDisplay() {
+            const durationEl = document.getElementById('duration-display');
+            if (!durationEl) return;
+            if (!loadedMidi) {
+                durationEl.textContent = "-";
+                return;
+            }
+            const speed = parseFloat(document.getElementById('speed-slider').value) || 1.0;
+            const durationSeconds = loadedMidi.duration / speed;
+            durationEl.textContent = formatTime(durationSeconds);
+        }
+
         // スピードスライダー
         document.getElementById('speed-slider').addEventListener('input', (e) => {
             document.getElementById('speed-display').textContent = `${parseFloat(e.target.value).toFixed(1)}x`;
+            updateDurationDisplay();
         });
 
         // --- ゲームスタート ---
@@ -784,6 +1207,7 @@
                 stats.perfect++;
                 spawnParticles(lane, 20);
                 spawnJudgeText("PERFECT", lane, "#00ffff");
+                cameraShake = 1.0;
             } else if (diff <= GREAT_WINDOW) {
                 target.hit = true;
                 if (target.isLong) target.isHolding = true;
@@ -793,6 +1217,7 @@
                 stats.great++;
                 spawnParticles(lane, 10);
                 spawnJudgeText("GREAT", lane, "#39ff14");
+                cameraShake = 0.5;
             }
             maxCombo = Math.max(maxCombo, combo);
             updateScoreUI();
@@ -964,126 +1389,342 @@
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 
-    function drawBackground(dt) {
-        bgTime += dt;
-        
-        ctx.fillStyle = '#030308';
-        ctx.fillRect(0, 0, width, height);
+        // グリッド床のうねり（波）の高さ計算
+        function getGridHeight(worldX, worldZ) {
+            // レーンがある中央付近はプレイアビリティのために平らに保つ
+            const trackWidth = LANE_COUNT * laneWorldWidth;
+            const distFromTrack = Math.max(0, Math.abs(worldX) - trackWidth / 2 - 100);
+            if (distFromTrack === 0) return 0;
+            
+            // 外側に向かって波を強くする（最大高さを themeConfig から取得）
+            const maxWaveHeight = themeConfig.gridWaveHeight || 90;
+            const waveStrength = Math.min(distFromTrack * 0.18, maxWaveHeight);
+            
+            // うねりの速度と周波数も themeConfig から取得
+            const speed = themeConfig.gridWaveSpeed || 2.5;
+            const freqX = themeConfig.gridWaveFreqX || 0.005;
+            const freqZ = themeConfig.gridWaveFreqZ || 0.003;
+            
+            return Math.sin(worldX * freqX + worldZ * freqZ - bgTime * speed) * waveStrength;
+        }
 
-        // --- 1. 星の描画（奥から手前へ） ---
-        ctx.fillStyle = '#ffffff';
-        const cx = width / 2;
-        const cy = vanishingY;
-        
-        bgStars.forEach(star => {
-            star.z -= star.speedZ * dt;
-            if (star.z <= 0) {
-                star.z = 2000;
-                star.x = (Math.random() - 0.5) * 2000;
-                star.y = (Math.random() - 0.5) * 1000;
+        function drawBackground(dt) {
+            bgTime += dt;
+            
+            ctx.fillStyle = '#030308';
+            ctx.fillRect(0, 0, width, height);
+
+            // --- 演出同期用のビートパルス計算 ---
+            const isPlaying = gameState === 'playing';
+            const currentSeconds = isPlaying ? Tone.Transport.seconds : (bgTime * 1.0);
+            const beatDuration = 60 / currentBpm;
+            const beatPhase = (currentSeconds % beatDuration) / beatDuration;
+            const pulseEffect = Math.exp(-beatPhase * 4.0); // ビートで1に立ち上がり減衰する
+
+            const cx = width / 2;
+            const cy = vanishingY;
+
+            // --- 1. 星の描画（奥から手前へ） ---
+            ctx.fillStyle = '#ffffff';
+            bgStars.forEach(star => {
+                // ビートに合わせて移動速度を少しブースト
+                const currentSpeed = star.speedZ * (1.0 + pulseEffect * 0.5);
+                star.z -= currentSpeed * dt;
+                if (star.z <= 0) {
+                    star.z = 2000;
+                    star.x = (Math.random() - 0.5) * 2000;
+                    star.y = (Math.random() - 0.5) * 1000;
+                }
+                
+                const scale = projD / (star.z - cameraZ);
+                if (scale > 0) {
+                    const sx = cx + star.x * scale;
+                    const sy = cy + star.y * scale;
+                    
+                    ctx.globalAlpha = star.alpha * Math.min(1, scale);
+                    ctx.beginPath();
+                    const sz = star.size * (1.0 + pulseEffect * 0.3) * scale;
+                    ctx.arc(sx, sy, sz, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            ctx.globalAlpha = 1.0;
+
+            // --- 2. ネオンレトロサン (夕日) の描画 ---
+            const sunRadius = Math.min(width * 0.15, 120);
+            ctx.save();
+            ctx.shadowBlur = 30 + pulseEffect * 20; // ビートで発光が強くなる
+            ctx.shadowColor = '#ff007f';
+            
+            const sunGrad = ctx.createLinearGradient(cx, cy - sunRadius, cx, cy + sunRadius * 0.5);
+            sunGrad.addColorStop(0, '#ff0055');
+            sunGrad.addColorStop(0.5, '#ff5500');
+            sunGrad.addColorStop(1, '#ffcc00');
+            ctx.fillStyle = sunGrad;
+            
+            ctx.beginPath();
+            ctx.arc(cx, cy, sunRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            
+            // サンカット (黒ラインによるスライス効果)
+            ctx.fillStyle = '#030308';
+            const sliceCount = 8;
+            for (let i = 0; i < sliceCount; i++) {
+                const sliceY = cy + (i / sliceCount) * sunRadius;
+                const sliceHeight = 2 + i * 1.5;
+                ctx.fillRect(cx - sunRadius - 10, sliceY, (sunRadius + 10) * 2, sliceHeight);
+            }
+
+            // --- 3. ワイヤーフレームマウンテン (サイバー山脈) ---
+            ctx.save();
+            ctx.lineWidth = 1.5;
+            
+            // 左奥の山
+            ctx.shadowBlur = 8; ctx.shadowColor = '#ff007f';
+            ctx.strokeStyle = '#ff007f';
+            ctx.fillStyle = '#030308';
+            ctx.beginPath();
+            ctx.moveTo(0, cy);
+            ctx.lineTo(cx * 0.25, cy - 90);
+            ctx.lineTo(cx * 0.45, cy - 30);
+            ctx.lineTo(cx * 0.65, cy);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            
+            // 右奥の山
+            ctx.shadowColor = '#00e5ff'; ctx.strokeStyle = '#00e5ff';
+            ctx.beginPath();
+            ctx.moveTo(cx * 1.35, cy);
+            ctx.lineTo(cx * 1.55, cy - 100);
+            ctx.lineTo(cx * 1.75, cy - 40);
+            ctx.lineTo(width, cy);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            
+            // 手前の重ね合わせ (左中)
+            ctx.shadowColor = '#39ff14'; ctx.strokeStyle = '#39ff14';
+            ctx.beginPath();
+            ctx.moveTo(0, cy);
+            ctx.lineTo(cx * 0.15, cy - 120);
+            ctx.lineTo(cx * 0.35, cy - 50);
+            ctx.lineTo(cx * 0.5, cy);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            
+            // 山のサイバーグリッド装飾線
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.beginPath();
+            ctx.moveTo(cx * 0.15, cy - 120); ctx.lineTo(cx * 0.15, cy);
+            ctx.moveTo(cx * 0.25, cy - 90); ctx.lineTo(cx * 0.25, cy);
+            ctx.moveTo(cx * 1.55, cy - 100); ctx.lineTo(cx * 1.55, cy);
+            ctx.stroke();
+            ctx.restore();
+
+            // --- 4. 波打つサイバーグリッド床 ---
+            const gridZSpacing = 200;
+            const gridXSpacing = 200;
+            const gridSpeed = NOTE_SPEED * 0.4;
+            const gridOffsetZ = (bgTime * gridSpeed) % gridZSpacing;
+            
+            const baseGridColor = themeConfig.secondaryColor || '#00e5ff';
+            
+            // 縦線
+            ctx.lineWidth = 1 + pulseEffect * 0.5;
+            for (let x = -4000; x <= 4000; x += gridXSpacing) {
+                ctx.strokeStyle = hexToRgba(baseGridColor, 0.12 + pulseEffect * 0.08);
+                ctx.beginPath();
+                let first = true;
+                for (let z = 4000; z >= -200; z -= 200) {
+                    const y = getGridHeight(x, z);
+                    const p = project(x, z, y);
+                    if (p) {
+                        if (first) {
+                            ctx.moveTo(p.x, p.y);
+                            first = false;
+                        } else {
+                            ctx.lineTo(p.x, p.y);
+                        }
+                    }
+                }
+                ctx.stroke();
             }
             
-            const scale = projD / (star.z - cameraZ);
-            if (scale > 0) {
-                const sx = cx + star.x * scale;
-                const sy = cy + star.y * scale;
+            // 横線（奥から手前に流れるスキャンパルスの演出）
+            for (let z = 0; z < 4000; z += gridZSpacing) {
+                const actualZ = z - gridOffsetZ;
+                if (actualZ < -200) continue;
                 
-                ctx.globalAlpha = star.alpha * Math.min(1, scale);
+                // 奥から手前に走る光の波（周期1200、幅250ピクセル）
+                const wavePhase = (actualZ + bgTime * NOTE_SPEED * 0.8) % 1200;
+                const scanHighlight = wavePhase < 250 ? (1 - wavePhase / 250) : 0;
+                
+                ctx.lineWidth = (1 + pulseEffect * 0.5) * (1.0 + scanHighlight * 1.8);
+                ctx.strokeStyle = hexToRgba(baseGridColor, 0.12 + pulseEffect * 0.08 + scanHighlight * 0.38);
+                
                 ctx.beginPath();
-                ctx.arc(sx, sy, star.size * scale, 0, Math.PI * 2);
+                let first = true;
+                for (let x = -4000; x <= 4000; x += 200) {
+                    const y = getGridHeight(x, actualZ);
+                    const p = project(x, actualZ, y);
+                    if (p) {
+                        if (first) {
+                            ctx.moveTo(p.x, p.y);
+                            first = false;
+                        } else {
+                            ctx.lineTo(p.x, p.y);
+                        }
+                    }
+                }
+                ctx.stroke();
+            }
+
+            // 脈動するグリッド交点ドット (Intersection Dots) の描画
+            ctx.save();
+            const dotColor = themeConfig.primaryColor || '#ff007f';
+            const trackWidth = LANE_COUNT * laneWorldWidth;
+            for (let z = 200; z <= 2400; z += 200) {
+                // 手前のZのみ表示（パフォーマンス向上のため）
+                const actualZ = z - gridOffsetZ;
+                if (actualZ < 0 || actualZ > 2400) continue;
+
+                const scale = projD / (actualZ - cameraZ);
+                if (scale <= 0) continue;
+
+                // ビートで拡大・発光するサイズ
+                const dotRadius = (1.5 + pulseEffect * 2.5) * scale;
+                ctx.fillStyle = hexToRgba(dotColor, 0.25 + pulseEffect * 0.55);
+
+                for (let x = -3000; x <= 3000; x += 200) {
+                    // レーン中央付近は描画しない（プレイエリアを邪魔しないようにする）
+                    if (Math.abs(x) < trackWidth / 2 + 100) continue;
+
+                    const y = getGridHeight(x, actualZ);
+                    const p = project(x, actualZ, y);
+                    if (p) {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, dotRadius, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+            ctx.restore();
+
+            // ネオン境界線（ガードレール）の描画
+            ctx.save();
+            const guardrailColor = themeConfig.primaryColor || '#ff007f';
+            const trackWidthVal = LANE_COUNT * laneWorldWidth;
+            const boundaryX1 = lanesStartX;
+            const boundaryX2 = lanesStartX + trackWidthVal;
+            
+            // ネオン発光効果の設定
+            ctx.shadowBlur = 12 + pulseEffect * 12;
+            ctx.shadowColor = guardrailColor;
+            ctx.globalCompositeOperation = 'screen';
+            
+            // 左側と右側の境界線をそれぞれ太線（ぼかし）と細線（芯）で二重描画してネオン感を出す
+            [boundaryX1, boundaryX2].forEach(bx => {
+                // 1回目：太い半透明の線（光の広がり）
+                ctx.lineWidth = 6 + pulseEffect * 2;
+                ctx.strokeStyle = hexToRgba(guardrailColor, 0.4 + pulseEffect * 0.2);
+                ctx.beginPath();
+                let first = true;
+                for (let z = 4000; z >= -400; z -= 100) {
+                    const y = getGridHeight(bx, z);
+                    const p = project(bx, z, y);
+                    if (p) {
+                        if (first) {
+                            ctx.moveTo(p.x, p.y);
+                            first = false;
+                        } else {
+                            ctx.lineTo(p.x, p.y);
+                        }
+                    }
+                }
+                ctx.stroke();
+
+                // 2回目：細い芯の線
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ffffff'; // 芯は白くすることで強い発光感を出す
+                ctx.beginPath();
+                first = true;
+                for (let z = 4000; z >= -400; z -= 100) {
+                    const y = getGridHeight(bx, z);
+                    const p = project(bx, z, y);
+                    if (p) {
+                        if (first) {
+                            ctx.moveTo(p.x, p.y);
+                            first = false;
+                        } else {
+                            ctx.lineTo(p.x, p.y);
+                        }
+                    }
+                }
+                ctx.stroke();
+            });
+            ctx.restore();
+
+            // --- 5. 地平線のイコライザー風レーザー (ビートシンク) ---
+            const pulse = (Math.sin(bgTime * 8) + 1) / 2;
+            
+            ctx.globalCompositeOperation = 'screen';
+            for (let i = -8; i <= 8; i++) {
+                if (i === 0) continue;
+                
+                const lx = (i * width / 16) + cx;
+                const ly = vanishingY;
+                
+                const activePulse = isPlaying ? Math.random() : pulse;
+                const lHeight = 30 + activePulse * 150 + (Math.abs(i) * 10) + (pulseEffect * 80);
+                
+                const gradLaser = ctx.createLinearGradient(0, ly, 0, ly - lHeight);
+                const rColor = i % 2 === 0 ? '255, 0, 127' : '0, 229, 255';
+                
+                gradLaser.addColorStop(0, `rgba(${rColor}, 0.8)`);
+                gradLaser.addColorStop(1, `rgba(${rColor}, 0)`);
+                
+                ctx.fillStyle = gradLaser;
+                ctx.beginPath();
+                const laserWidth = Math.max(1, 15 - Math.abs(i));
+                ctx.moveTo(lx - laserWidth, ly);
+                ctx.lineTo(lx + laserWidth, ly);
+                ctx.lineTo(lx + laserWidth/4, ly - lHeight);
+                ctx.lineTo(lx - laserWidth/4, ly - lHeight);
                 ctx.fill();
             }
-        });
-        ctx.globalAlpha = 1.0;
+            ctx.globalCompositeOperation = 'source-over';
 
-        // --- 2. ワイヤーフレームの床（シンセウェイヴ風グリッド） ---
-        const gridZSpacing = 200;
-        const gridXSpacing = 200;
-        const gridSpeed = NOTE_SPEED * 0.4; // ノーツより少し遅く流す
-        const gridOffsetZ = (bgTime * gridSpeed) % gridZSpacing;
-        
-        ctx.strokeStyle = 'rgba(0, 229, 255, 0.15)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        
-        // 横線 (Z軸に沿って手前に移動)
-        for (let z = 0; z < 4000; z += gridZSpacing) {
-            const actualZ = z - gridOffsetZ;
-            if (actualZ < -200) continue;
-            const pL = project(-4000, actualZ);
-            const pR = project(4000, actualZ);
-            if (pL && pR) {
-                ctx.moveTo(pL.x, pL.y);
-                ctx.lineTo(pR.x, pR.y);
-            }
-        }
-        
-        // 縦線 (放射状)
-        for (let x = -4000; x <= 4000; x += gridXSpacing) {
-            const pBack = project(x, 4000);
-            const pFront = project(x, -200);
-            if (pBack && pFront) {
-                ctx.moveTo(pBack.x, pBack.y);
-                ctx.lineTo(pFront.x, pFront.y);
-            }
-        }
-        ctx.stroke();
-
-        // --- 3. 地平線のイコライザー風レーザー ---
-        const pulse = (Math.sin(bgTime * 8) + 1) / 2; // 時間で激しく明滅
-        const isPlaying = gameState === 'playing';
-        
-        ctx.globalCompositeOperation = 'screen';
-        for (let i = -8; i <= 8; i++) {
-            if (i === 0) continue; // 中央はレーンがあるため避ける
+            // --- 6. 地平線の発光ライン ---
+            const grad = ctx.createLinearGradient(0, vanishingY - 30, 0, vanishingY + 50);
+            grad.addColorStop(0, 'rgba(0, 229, 255, 0)');
+            grad.addColorStop(0.5, 'rgba(0, 229, 255, 0.4)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, vanishingY - 30, width, 80);
             
-            const lx = (i * width / 16) + cx;
-            const ly = vanishingY;
-            
-            // プレイ中はランダムに激しく、待機中は緩やかに
-            const activePulse = isPlaying ? Math.random() : pulse;
-            const lHeight = 30 + activePulse * 150 + (Math.abs(i) * 10);
-            
-            const gradLaser = ctx.createLinearGradient(0, ly, 0, ly - lHeight);
-            const rColor = i % 2 === 0 ? '255, 0, 127' : '0, 229, 255'; // ピンクとシアン
-            
-            gradLaser.addColorStop(0, `rgba(${rColor}, 0.8)`);
-            gradLaser.addColorStop(1, `rgba(${rColor}, 0)`);
-            
-            ctx.fillStyle = gradLaser;
+            ctx.shadowBlur = 10 + pulseEffect * 15;
+            ctx.shadowColor = '#00e5ff';
+            ctx.strokeStyle = '#00e5ff';
+            ctx.lineWidth = 2 + pulseEffect * 1.5;
             ctx.beginPath();
-            const laserWidth = Math.max(1, 15 - Math.abs(i)); // 手前(端)ほど太く
-            ctx.moveTo(lx - laserWidth, ly);
-            ctx.lineTo(lx + laserWidth, ly);
-            ctx.lineTo(lx + laserWidth/4, ly - lHeight);
-            ctx.lineTo(lx - laserWidth/4, ly - lHeight);
-            ctx.fill();
+            ctx.moveTo(0, vanishingY);
+            ctx.lineTo(width, vanishingY);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
         }
-        ctx.globalCompositeOperation = 'source-over';
 
-        // --- 4. 地平線の発光ライン ---
-        const grad = ctx.createLinearGradient(0, vanishingY - 30, 0, vanishingY + 50);
-        grad.addColorStop(0, 'rgba(0, 229, 255, 0)');
-        grad.addColorStop(0.5, 'rgba(0, 229, 255, 0.4)');
-        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, vanishingY - 30, width, 80);
-        
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = '#00e5ff';
-        ctx.strokeStyle = '#00e5ff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, vanishingY);
-        ctx.lineTo(width, vanishingY);
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-    }
-
-    function drawLanes(dt) {
+        function drawLanes(dt) {
             const maxZ = 6000;
             const minZ = -400; // 判定ラインより少し手前まで描画
             
+            // ビートパルスの計算
+            const isPlaying = gameState === 'playing';
+            const currentSeconds = isPlaying ? Tone.Transport.seconds : (bgTime * 1.0);
+            const beatDuration = 60 / currentBpm;
+            const beatPhase = (currentSeconds % beatDuration) / beatDuration;
+            const pulseEffect = Math.exp(-beatPhase * 4.0);
+
             ctx.globalCompositeOperation = 'screen';
 
             for (let i = 0; i < LANE_COUNT; i++) {
@@ -1097,8 +1738,8 @@
                 
                 if (!pBackL || !pFrontL) continue;
 
-                // レーン背景
-                ctx.fillStyle = `rgba(20, 20, 40, 0.3)`;
+                // レーン背景 (うっすらビートに合わせて明滅する)
+                ctx.fillStyle = `rgba(20, 20, 40, ${0.25 + pulseEffect * 0.08})`;
                 ctx.beginPath();
                 ctx.moveTo(pBackL.x, pBackL.y);
                 ctx.lineTo(pBackR.x, pBackR.y);
@@ -1135,10 +1776,10 @@
             const pHitLeft = project(lanesStartX, 0);
             const pHitRight = project(lanesStartX + LANE_COUNT * laneWorldWidth, 0);
             if (pHitLeft && pHitRight) {
-                ctx.shadowBlur = 15;
+                ctx.shadowBlur = 15 + pulseEffect * 10;
                 ctx.shadowColor = '#fff';
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.lineWidth = 4;
+                ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 + pulseEffect * 0.2})`;
+                ctx.lineWidth = 4 + pulseEffect * 1.5;
                 ctx.beginPath();
                 ctx.moveTo(pHitLeft.x, pHitLeft.y);
                 ctx.lineTo(pHitRight.x, pHitRight.y);
@@ -1289,11 +1930,19 @@
 
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 15;
                 ctx.shadowColor = p.color;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill();
+                
+                // Draw a beautiful shooting spark laser trail!
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = p.size * 0.8;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x - p.vx * 0.04, p.y - p.vy * 0.04);
+                ctx.stroke();
             }
             ctx.shadowBlur = 0;
 
@@ -1326,6 +1975,10 @@
             const dt = (timeNow - lastTime) / 1000;
             lastTime = timeNow;
 
+            if (cameraShake > 0) {
+                cameraShake = Math.max(0, cameraShake - dt * 4.0);
+            }
+
             drawBackground(dt);
 
             if (gameState === 'playing' || gameState === 'countdown') {
@@ -1334,6 +1987,12 @@
                 
                 // カウントダウン中は Tone.Transport.seconds が 0 なのでノーツは奥で待機
                 const currentTime = gameState === 'playing' ? Tone.Transport.seconds : 0;
+                
+                // 残り時間の計算と表示
+                const speed = parseFloat(document.getElementById('speed-slider').value) || 1.0;
+                const totalSeconds = (loadedMidi.duration / speed) + 2.0; // 猶予時間2秒を含む
+                const remaining = Math.max(0, totalSeconds - currentTime);
+                document.getElementById('time-display').textContent = formatTime(remaining);
                 
                 if (gameState === 'playing') {
                     updateNoteStates(currentTime);
