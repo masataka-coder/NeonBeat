@@ -73,9 +73,15 @@
         
         <!-- ヘッダー（プレイ中のみ表示） -->
         <div id="game-header" class="flex justify-between items-start hidden transition-opacity duration-500">
-            <div>
-                <p class="text-sm md:text-lg text-[#00e5ff] tracking-widest mb-[-5px]">SCORE / スコア</p>
-                <p class="text-4xl md:text-6xl font-black text-white drop-shadow-[0_0_10px_rgba(0,229,255,0.8)]" id="score-display">0</p>
+            <div class="flex gap-6 items-end">
+                <div>
+                    <p class="text-sm md:text-lg text-[#00e5ff] tracking-widest mb-[-5px]">SCORE / スコア</p>
+                    <p class="text-4xl md:text-6xl font-black text-white drop-shadow-[0_0_10px_rgba(0,229,255,0.8)]" id="score-display">0</p>
+                </div>
+                <div class="mb-1 text-left hidden md:block">
+                    <p class="text-xs text-gray-400 tracking-widest mb-[-2px]">HI-SCORE</p>
+                    <p class="text-lg md:text-xl font-bold text-gray-300 font-mono" id="hud-highscore-display">0</p>
+                </div>
             </div>
             <div class="text-center">
                 <p class="text-sm md:text-lg text-gray-400 tracking-widest mb-[-5px]">TIME / 残り時間</p>
@@ -156,10 +162,12 @@
                         </select>
                     </div>
 
-                    <!-- 軽量モード (背景演出オフ) -->
+
+
+                    <!-- ハイスコア表示 -->
                     <div class="mb-4 text-left text-sm text-gray-300 flex items-center justify-between border-b border-[#00e5ff]/30 pb-2">
-                        <span class="text-xs text-[#00e5ff] tracking-widest font-bold">軽量モード (背景演出オフ)</span>
-                        <input type="checkbox" id="low-spec-mode-checkbox" class="w-4 h-4 cursor-pointer accent-[#ff007f]">
+                        <span class="text-xs text-[#00e5ff] tracking-widest font-bold">ハイスコア</span>
+                        <span id="highscore-display" class="font-bold text-[#ffff00] font-mono text-base">0</span>
                     </div>
 
                     <!-- 演奏目安時間表示 -->
@@ -201,12 +209,21 @@
         <div id="result-screen" class="absolute inset-0 flex items-center justify-center pointer-events-auto hidden bg-black/80 backdrop-blur-md opacity-0 transition-opacity duration-700">
             <div class="glass-panel neon-border-blue p-10 rounded-3xl flex flex-col items-center max-w-lg w-full text-center mx-4">
                 <h2 class="text-4xl md:text-5xl font-black mb-2 text-white drop-shadow-[0_0_10px_#00e5ff]">トラッククリア！</h2>
-                <p class="text-gray-400 mb-8 tracking-widest">RESULTS</p>
+                <p class="text-gray-400 mb-4 tracking-widest">RESULTS</p>
+                
+                <!-- 評価ランク表示 -->
+                <div class="mb-4 flex flex-col items-center animate-bounce">
+                    <p class="text-xs text-gray-400 tracking-widest mb-0.5">RANK / 評価</p>
+                    <p class="text-7xl font-black font-sans tracking-wide" id="result-rank" style="filter: drop-shadow(0 0 10px rgba(255,255,255,0.5));">S</p>
+                </div>
                 
                 <div class="grid grid-cols-2 gap-x-12 gap-y-6 w-full mb-10 text-left border-y border-gray-700 py-6">
                     <div>
                         <p class="text-xs text-gray-400 tracking-widest">SCORE / スコア</p>
-                        <p class="text-3xl font-bold text-white drop-shadow-[0_0_5px_#00e5ff]" id="result-score">0</p>
+                        <div class="flex items-center gap-2">
+                            <p class="text-3xl font-bold text-white drop-shadow-[0_0_5px_#00e5ff]" id="result-score">0</p>
+                            <span id="new-record-badge" class="hidden text-[10px] font-black bg-gradient-to-r from-[#ff007f] to-[#ffff00] text-black px-2 py-0.5 rounded shadow-[0_0_8px_#ff007f] animate-pulse">NEW!</span>
+                        </div>
                     </div>
                     <div>
                         <p class="text-xs text-gray-400 tracking-widest">MAX COMBO / 最大コンボ</p>
@@ -292,9 +309,23 @@
         let lastTime = 0;
         let animationFrameId = null;
         let bgTime = 0; // 背景アニメーション用の時間変数
+        let currentSongKey = 'neon_highway'; // 現在の曲キー
+
+        // ハイスコア永続化ヘルパー
+        function getHighScore(songKey) {
+            return parseInt(localStorage.getItem('neon_beat_highscore_' + songKey)) || 0;
+        }
+        function saveHighScore(songKey, newScore) {
+            localStorage.setItem('neon_beat_highscore_' + songKey, newScore);
+        }
+        function updateHighScoreDisplay() {
+            const hs = getHighScore(currentSongKey);
+            const hsEl = document.getElementById('highscore-display');
+            if (hsEl) hsEl.textContent = hs.toLocaleString();
+        }
+
         let currentBpm = 120; // 演出同期用のテンポ
         let cameraShake = 0.0; // カメラ揺れ効果用
-        let isLowSpecMode = false; // 軽量モード (背景演出オフ)
 
         let themeConfig = {
             primaryColor: '#ff007f',
@@ -311,6 +342,8 @@
         };
 
         function applyTheme(songKey) {
+            currentSongKey = songKey;
+            updateHighScoreDisplay();
             if (songKey === 'neon_highway') {
                 themeConfig = {
                     primaryColor: '#8a2be2',
@@ -387,8 +420,15 @@
         function resize() {
             width = window.innerWidth;
             height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
+            
+            // 高解像度デバイスでの描画負荷を下げるため、ピクセル比を最大 1.5 に制限
+            const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             
             // 消失点と判定ラインの高さを設定
             vanishingY = height * 0.25; // 消失点のY
@@ -412,17 +452,11 @@
 
         // ワールド座標(X, Z)から画面座標(X, Y, スケール)への射影関数
         function project(worldX, worldZ, worldY = 0) {
-            let shakeX = 0;
-            let shakeY = 0;
-            if (cameraShake > 0) {
-                shakeX = (Math.random() - 0.5) * cameraShake * 18;
-                shakeY = (Math.random() - 0.5) * cameraShake * 18;
-            }
             const dz = worldZ - cameraZ;
             if (dz <= 10) return null; // カメラより後ろは描画しない
             const scale = projD / dz;
-            const screenX = width / 2 + (worldX + shakeX) * scale;
-            const screenY = vanishingY + (yOffset + worldY + shakeY) * scale;
+            const screenX = width / 2 + worldX * scale;
+            const screenY = vanishingY + (yOffset + worldY) * scale;
             return { x: screenX, y: screenY, scale: scale };
         }
 
@@ -465,6 +499,7 @@
             }
 
             synth = new Tone.PolySynth(synthClass, options).toDestination();
+            synth.maxPolyphony = 32;
             const limiter = new Tone.Limiter(-5).toDestination();
             synth.connect(limiter);
         }
@@ -540,6 +575,10 @@
             
             try {
                 loadedMidi = midi;
+                if (!isSample) {
+                    currentSongKey = 'custom_' + name;
+                }
+                updateHighScoreDisplay();
                 
                 // 外部MIDIファイルの場合のみ曲調自動解析を行う
                 if (!isSample) {
@@ -914,10 +953,7 @@
             updateDurationDisplay();
         });
 
-        // 軽量モード
-        document.getElementById('low-spec-mode-checkbox').addEventListener('change', (e) => {
-            isLowSpecMode = e.target.checked;
-        });
+
 
         // --- ゲームスタート ---
         startBtn.addEventListener('click', async () => {
@@ -953,6 +989,10 @@
             particles = [];
             judgeTexts = [];
             updateScoreUI();
+            const hudHsEl = document.getElementById('hud-highscore-display');
+            if (hudHsEl) {
+                hudHsEl.textContent = getHighScore(currentSongKey).toLocaleString();
+            }
             
             Tone.Transport.stop();
             Tone.Transport.position = 0;
@@ -1133,6 +1173,51 @@
             Tone.Transport.stop();
             Tone.Transport.cancel();
             
+            // ハイスコア判定と保存
+            const highscore = getHighScore(currentSongKey);
+            const isNewRecord = score > highscore;
+            const newRecordBadge = document.getElementById('new-record-badge');
+            if (isNewRecord) {
+                saveHighScore(currentSongKey, score);
+                if (newRecordBadge) newRecordBadge.classList.remove('hidden');
+                updateHighScoreDisplay();
+            } else {
+                if (newRecordBadge) newRecordBadge.classList.add('hidden');
+            }
+            
+            // 精度（Accuracy）の計算とランク判定
+            const totalNotes = stats.perfect + stats.great + stats.miss;
+            let accuracy = 0;
+            if (totalNotes > 0) {
+                accuracy = (stats.perfect * 100 + stats.great * 50) / totalNotes;
+            }
+            
+            let rank = 'F';
+            let rankColor = '#888888';
+            if (accuracy >= 95) {
+                rank = 'S';
+                rankColor = '#ffff00'; // 黄色
+            } else if (accuracy >= 85) {
+                rank = 'A';
+                rankColor = '#ff007f'; // ピンク
+            } else if (accuracy >= 70) {
+                rank = 'B';
+                rankColor = '#00e5ff'; // ブルー
+            } else if (accuracy >= 50) {
+                rank = 'C';
+                rankColor = '#39ff14'; // グリーン
+            } else {
+                rank = 'F';
+                rankColor = '#ff3333'; // 赤
+            }
+            
+            const rankEl = document.getElementById('result-rank');
+            if (rankEl) {
+                rankEl.textContent = rank;
+                rankEl.style.color = rankColor;
+                rankEl.style.filter = `drop-shadow(0 0 15px ${rankColor})`;
+            }
+
             uiGameHeader.classList.add('hidden');
             uiGameHeader.style.opacity = '0';
             uiResultScreen.classList.remove('hidden');
@@ -1217,9 +1302,9 @@
                 score += scoreAdd + (combo * 10);
                 combo++;
                 stats.perfect++;
-                spawnParticles(lane, 20);
+                spawnParticles(lane, 8);
                 spawnJudgeText("PERFECT", lane, "#00ffff");
-                cameraShake = 1.0;
+                cameraShake = 0.0;
             } else if (diff <= GREAT_WINDOW) {
                 target.hit = true;
                 if (target.isLong) target.isHolding = true;
@@ -1227,9 +1312,9 @@
                 score += scoreAdd + (combo * 5);
                 combo++;
                 stats.great++;
-                spawnParticles(lane, 10);
+                spawnParticles(lane, 4);
                 spawnJudgeText("GREAT", lane, "#39ff14");
-                cameraShake = 0.5;
+                cameraShake = 0.0;
             }
             maxCombo = Math.max(maxCombo, combo);
             updateScoreUI();
@@ -1273,7 +1358,7 @@
                             // 帯の上にいて、キーが押されていれば（途中からでも）ホールド状態にする
                             note.isHolding = true;
                             score += 10;
-                            if (Math.random() > 0.8) spawnParticles(note.lane, 1);
+                            if (Math.random() > 0.9) spawnParticles(note.lane, 1);
                         } else {
                             // キーが離されている
                             note.isHolding = false;
@@ -1290,7 +1375,7 @@
                             combo++;
                             stats.perfect++;
                             spawnJudgeText("PERFECT", note.lane, "#00ffff");
-                            spawnParticles(note.lane, 20);
+                            spawnParticles(note.lane, 8);
                             updateScoreUI();
                         } else {
                             // 終端で離していた場合はミス
@@ -1401,353 +1486,20 @@
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 
-        // グリッド床のうねり（波）の高さ計算
-        function getGridHeight(worldX, worldZ) {
-            // レーンがある中央付近はプレイアビリティのために平らに保つ
-            const trackWidth = LANE_COUNT * laneWorldWidth;
-            const distFromTrack = Math.max(0, Math.abs(worldX) - trackWidth / 2 - 100);
-            if (distFromTrack === 0) return 0;
-            
-            // 外側に向かって波を強くする（最大高さを themeConfig から取得）
-            const maxWaveHeight = themeConfig.gridWaveHeight || 90;
-            const waveStrength = Math.min(distFromTrack * 0.18, maxWaveHeight);
-            
-            // うねりの速度と周波数も themeConfig から取得
-            const speed = themeConfig.gridWaveSpeed || 2.5;
-            const freqX = themeConfig.gridWaveFreqX || 0.005;
-            const freqZ = themeConfig.gridWaveFreqZ || 0.003;
-            
-            return Math.sin(worldX * freqX + worldZ * freqZ - bgTime * speed) * waveStrength;
-        }
-
         function drawBackground(dt) {
             bgTime += dt;
             
+            // 単色の暗い背景
             ctx.fillStyle = '#030308';
             ctx.fillRect(0, 0, width, height);
 
-            if (isLowSpecMode) {
-                // 軽量モード：背景演出（星、太陽、山、うねるグリッド床、イコライザー）をすべてスキップ
-                // 空間把握のため、地平線を示す薄い境界線だけを描画
-                ctx.strokeStyle = 'rgba(0, 229, 255, 0.3)';
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(0, vanishingY);
-                ctx.lineTo(width, vanishingY);
-                ctx.stroke();
-                return;
-            }
-
-            // --- 演出同期用のビートパルス計算 ---
-            const isPlaying = gameState === 'playing';
-            const currentSeconds = isPlaying ? Tone.Transport.seconds : (bgTime * 1.0);
-            const beatDuration = 60 / currentBpm;
-            const beatPhase = (currentSeconds % beatDuration) / beatDuration;
-            const pulseEffect = Math.exp(-beatPhase * 4.0); // ビートで1に立ち上がり減衰する
-
-            const cx = width / 2;
-            const cy = vanishingY;
-
-            // --- 1. 星の描画（奥から手前へ） ---
-            ctx.fillStyle = '#ffffff';
-            bgStars.forEach(star => {
-                // ビートに合わせて移動速度を少しブースト
-                const currentSpeed = star.speedZ * (1.0 + pulseEffect * 0.5);
-                star.z -= currentSpeed * dt;
-                if (star.z <= 0) {
-                    star.z = 2000;
-                    star.x = (Math.random() - 0.5) * 2000;
-                    star.y = (Math.random() - 0.5) * 1000;
-                }
-                
-                const scale = projD / (star.z - cameraZ);
-                if (scale > 0) {
-                    const sx = cx + star.x * scale;
-                    const sy = cy + star.y * scale;
-                    
-                    ctx.globalAlpha = star.alpha * Math.min(1, scale);
-                    ctx.beginPath();
-                    const sz = star.size * (1.0 + pulseEffect * 0.3) * scale;
-                    ctx.arc(sx, sy, sz, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            });
-            ctx.globalAlpha = 1.0;
-
-            // --- 2. ネオンレトロサン (夕日) の描画 ---
-            const sunRadius = Math.min(width * 0.15, 120);
-            ctx.save();
-            ctx.shadowBlur = 30 + pulseEffect * 20; // ビートで発光が強くなる
-            ctx.shadowColor = '#ff007f';
-            
-            const sunGrad = ctx.createLinearGradient(cx, cy - sunRadius, cx, cy + sunRadius * 0.5);
-            sunGrad.addColorStop(0, '#ff0055');
-            sunGrad.addColorStop(0.5, '#ff5500');
-            sunGrad.addColorStop(1, '#ffcc00');
-            ctx.fillStyle = sunGrad;
-            
-            ctx.beginPath();
-            ctx.arc(cx, cy, sunRadius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-            
-            // サンカット (黒ラインによるスライス効果)
-            ctx.fillStyle = '#030308';
-            const sliceCount = 8;
-            for (let i = 0; i < sliceCount; i++) {
-                const sliceY = cy + (i / sliceCount) * sunRadius;
-                const sliceHeight = 2 + i * 1.5;
-                ctx.fillRect(cx - sunRadius - 10, sliceY, (sunRadius + 10) * 2, sliceHeight);
-            }
-
-            // --- 3. ワイヤーフレームマウンテン (サイバー山脈) ---
-            ctx.save();
+            // 空間把握のためのシンプルな地平線のみ描画
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.2)';
             ctx.lineWidth = 1.5;
-            
-            // 左奥の山
-            ctx.shadowBlur = 8; ctx.shadowColor = '#ff007f';
-            ctx.strokeStyle = '#ff007f';
-            ctx.fillStyle = '#030308';
-            ctx.beginPath();
-            ctx.moveTo(0, cy);
-            ctx.lineTo(cx * 0.25, cy - 90);
-            ctx.lineTo(cx * 0.45, cy - 30);
-            ctx.lineTo(cx * 0.65, cy);
-            ctx.closePath();
-            ctx.fill(); ctx.stroke();
-            
-            // 右奥の山
-            ctx.shadowColor = '#00e5ff'; ctx.strokeStyle = '#00e5ff';
-            ctx.beginPath();
-            ctx.moveTo(cx * 1.35, cy);
-            ctx.lineTo(cx * 1.55, cy - 100);
-            ctx.lineTo(cx * 1.75, cy - 40);
-            ctx.lineTo(width, cy);
-            ctx.closePath();
-            ctx.fill(); ctx.stroke();
-            
-            // 手前の重ね合わせ (左中)
-            ctx.shadowColor = '#39ff14'; ctx.strokeStyle = '#39ff14';
-            ctx.beginPath();
-            ctx.moveTo(0, cy);
-            ctx.lineTo(cx * 0.15, cy - 120);
-            ctx.lineTo(cx * 0.35, cy - 50);
-            ctx.lineTo(cx * 0.5, cy);
-            ctx.closePath();
-            ctx.fill(); ctx.stroke();
-            
-            // 山のサイバーグリッド装飾線
-            ctx.shadowBlur = 0;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-            ctx.beginPath();
-            ctx.moveTo(cx * 0.15, cy - 120); ctx.lineTo(cx * 0.15, cy);
-            ctx.moveTo(cx * 0.25, cy - 90); ctx.lineTo(cx * 0.25, cy);
-            ctx.moveTo(cx * 1.55, cy - 100); ctx.lineTo(cx * 1.55, cy);
-            ctx.stroke();
-            ctx.restore();
-
-            // --- 4. 波打つサイバーグリッド床 ---
-            const gridZSpacing = 300;
-            const gridXSpacing = 300;
-            const gridSpeed = NOTE_SPEED * 0.4;
-            const gridOffsetZ = (bgTime * gridSpeed) % gridZSpacing;
-            
-            const baseGridColor = themeConfig.secondaryColor || '#00e5ff';
-            
-            // スクロールに同期した横線（縦線の交点としても再利用）のZ座標の事前計算
-            const actualZArray = [];
-            for (let z = 0; z <= 3000; z += gridZSpacing) {
-                const actualZ = z - gridOffsetZ;
-                if (actualZ >= -300) {
-                    actualZArray.push(actualZ);
-                }
-            }
-            
-            // 縦線（横線と同じスクロール座標に合わせることで床全体が一枚のシートとして流れる）
-            ctx.lineWidth = 1 + pulseEffect * 0.4;
-            for (let x = -3000; x <= 3000; x += gridXSpacing) {
-                ctx.strokeStyle = hexToRgba(baseGridColor, 0.10 + pulseEffect * 0.06);
-                ctx.beginPath();
-                let first = true;
-                for (let i = 0; i < actualZArray.length; i++) {
-                    const az = actualZArray[i];
-                    const y = getGridHeight(x, az);
-                    const p = project(x, az, y);
-                    if (p) {
-                        if (first) {
-                            ctx.moveTo(p.x, p.y);
-                            first = false;
-                        } else {
-                            ctx.lineTo(p.x, p.y);
-                        }
-                    }
-                }
-                ctx.stroke();
-            }
-            
-            // 横線（奥から手前に流れるスキャンパルスの演出）
-            for (let i = 0; i < actualZArray.length; i++) {
-                const actualZ = actualZArray[i];
-                
-                // 奥から手前に走る光の波（周期1200、幅250ピクセル）
-                const wavePhase = (actualZ + bgTime * NOTE_SPEED * 0.8) % 1200;
-                const scanHighlight = wavePhase < 250 ? (1 - wavePhase / 250) : 0;
-                
-                ctx.lineWidth = (1 + pulseEffect * 0.4) * (1.0 + scanHighlight * 1.5);
-                ctx.strokeStyle = hexToRgba(baseGridColor, 0.10 + pulseEffect * 0.06 + scanHighlight * 0.35);
-                
-                ctx.beginPath();
-                let first = true;
-                for (let x = -3000; x <= 3000; x += 300) {
-                    const y = getGridHeight(x, actualZ);
-                    const p = project(x, actualZ, y);
-                    if (p) {
-                        if (first) {
-                            ctx.moveTo(p.x, p.y);
-                            first = false;
-                        } else {
-                            ctx.lineTo(p.x, p.y);
-                        }
-                    }
-                }
-                ctx.stroke();
-            }
-
-            // 脈動するグリッド交点ドット (Intersection Dots) の描画（Path Batching による高速化）
-            ctx.save();
-            const dotColor = themeConfig.primaryColor || '#ff007f';
-            const trackWidth = LANE_COUNT * laneWorldWidth;
-            
-            ctx.fillStyle = hexToRgba(dotColor, 0.22 + pulseEffect * 0.50);
-            ctx.beginPath();
-            
-            for (let i = 0; i < actualZArray.length; i++) {
-                const actualZ = actualZArray[i];
-                if (actualZ < 0 || actualZ > 2000) continue; // 手前エリアに絞る
-
-                const scale = projD / (actualZ - cameraZ);
-                if (scale <= 0) continue;
-
-                // ビートで拡大・発光するサイズ
-                const dotRadius = (1.5 + pulseEffect * 2.0) * scale;
-
-                for (let x = -3000; x <= 3000; x += 300) {
-                    // レーン中央付近（プレイエリア）は描画しない
-                    if (Math.abs(x) < trackWidth / 2 + 100) continue;
-
-                    const y = getGridHeight(x, actualZ);
-                    const p = project(x, actualZ, y);
-                    if (p) {
-                        // パス同士が線で繋がらないように moveTo を挟んでから arc を追加
-                        ctx.moveTo(p.x + dotRadius, p.y);
-                        ctx.arc(p.x, p.y, dotRadius, 0, Math.PI * 2);
-                    }
-                }
-            }
-            ctx.fill(); // 全交点ドットを 1 回の命令で一括描画して高速化
-            ctx.restore();
-
-            // ネオン境界線（ガードレール）の描画（描画ステップ数を半減させて軽量化）
-            ctx.save();
-            const guardrailColor = themeConfig.primaryColor || '#ff007f';
-            const trackWidthVal = LANE_COUNT * laneWorldWidth;
-            const boundaryX1 = lanesStartX;
-            const boundaryX2 = lanesStartX + trackWidthVal;
-            
-            // ネオン発光効果（shadowBlur は負荷が高いため少し控えめに調整）
-            ctx.shadowBlur = 8 + pulseEffect * 8;
-            ctx.shadowColor = guardrailColor;
-            ctx.globalCompositeOperation = 'screen';
-            
-            [boundaryX1, boundaryX2].forEach(bx => {
-                // 1回目：太い半透明の線（光の広がり）
-                ctx.lineWidth = 5 + pulseEffect * 1.5;
-                ctx.strokeStyle = hexToRgba(guardrailColor, 0.35 + pulseEffect * 0.15);
-                ctx.beginPath();
-                let first = true;
-                // ステップを 200 に緩和
-                for (let z = 3000; z >= -400; z -= 200) {
-                    const y = getGridHeight(bx, z);
-                    const p = project(bx, z, y);
-                    if (p) {
-                        if (first) {
-                            ctx.moveTo(p.x, p.y);
-                            first = false;
-                        } else {
-                            ctx.lineTo(p.x, p.y);
-                        }
-                    }
-                }
-                ctx.stroke();
-
-                // 2回目：細い芯の線
-                ctx.lineWidth = 1.5;
-                ctx.strokeStyle = '#ffffff'; // 芯は白くすることで強い発光感を出す
-                ctx.beginPath();
-                first = true;
-                for (let z = 3000; z >= -400; z -= 200) {
-                    const y = getGridHeight(bx, z);
-                    const p = project(bx, z, y);
-                    if (p) {
-                        if (first) {
-                            ctx.moveTo(p.x, p.y);
-                            first = false;
-                        } else {
-                            ctx.lineTo(p.x, p.y);
-                        }
-                    }
-                }
-                ctx.stroke();
-            });
-            ctx.restore();
-
-            // --- 5. 地平線のイコライザー風レーザー (ビートシンク) ---
-            const pulse = (Math.sin(bgTime * 8) + 1) / 2;
-            
-            ctx.globalCompositeOperation = 'screen';
-            for (let i = -8; i <= 8; i++) {
-                if (i === 0) continue;
-                
-                const lx = (i * width / 16) + cx;
-                const ly = vanishingY;
-                
-                const activePulse = isPlaying ? Math.random() : pulse;
-                const lHeight = 30 + activePulse * 150 + (Math.abs(i) * 10) + (pulseEffect * 80);
-                
-                const gradLaser = ctx.createLinearGradient(0, ly, 0, ly - lHeight);
-                const rColor = i % 2 === 0 ? '255, 0, 127' : '0, 229, 255';
-                
-                gradLaser.addColorStop(0, `rgba(${rColor}, 0.8)`);
-                gradLaser.addColorStop(1, `rgba(${rColor}, 0)`);
-                
-                ctx.fillStyle = gradLaser;
-                ctx.beginPath();
-                const laserWidth = Math.max(1, 15 - Math.abs(i));
-                ctx.moveTo(lx - laserWidth, ly);
-                ctx.lineTo(lx + laserWidth, ly);
-                ctx.lineTo(lx + laserWidth/4, ly - lHeight);
-                ctx.lineTo(lx - laserWidth/4, ly - lHeight);
-                ctx.fill();
-            }
-            ctx.globalCompositeOperation = 'source-over';
-
-            // --- 6. 地平線の発光ライン ---
-            const grad = ctx.createLinearGradient(0, vanishingY - 30, 0, vanishingY + 50);
-            grad.addColorStop(0, 'rgba(0, 229, 255, 0)');
-            grad.addColorStop(0.5, 'rgba(0, 229, 255, 0.4)');
-            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, vanishingY - 30, width, 80);
-            
-            ctx.shadowBlur = 10 + pulseEffect * 15;
-            ctx.shadowColor = '#00e5ff';
-            ctx.strokeStyle = '#00e5ff';
-            ctx.lineWidth = 2 + pulseEffect * 1.5;
             ctx.beginPath();
             ctx.moveTo(0, vanishingY);
             ctx.lineTo(width, vanishingY);
             ctx.stroke();
-            ctx.shadowBlur = 0;
         }
 
         function drawLanes(dt) {
