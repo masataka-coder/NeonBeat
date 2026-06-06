@@ -305,7 +305,6 @@
         let particles = [];
         let judgeTexts = [];
         let synth = null;
-        let bgStars = [];
         let lastTime = 0;
         let animationFrameId = null;
         let bgTime = 0; // 背景アニメーション用の時間変数
@@ -445,8 +444,6 @@
             
             // スピードも世界のスケールに合わせて調整
             NOTE_SPEED = projD * 4;
-            
-            initStars();
         }
         window.addEventListener('resize', resize);
 
@@ -460,19 +457,7 @@
             return { x: screenX, y: screenY, scale: scale };
         }
 
-        function initStars() {
-            bgStars = [];
-            for (let i = 0; i < 100; i++) {
-                bgStars.push({
-                    x: (Math.random() - 0.5) * 2000,
-                    y: (Math.random() - 0.5) * 1000,
-                    z: Math.random() * 2000,
-                    size: Math.random() * 3 + 1,
-                    speedZ: Math.random() * 300 + 100,
-                    alpha: Math.random()
-                });
-            }
-        }
+
 
         // --- 音声 (Tone.js) セットアップ ---
         function initAudio() {
@@ -1564,15 +1549,21 @@
             const pHitLeft = project(lanesStartX, 0);
             const pHitRight = project(lanesStartX + LANE_COUNT * laneWorldWidth, 0);
             if (pHitLeft && pHitRight) {
-                ctx.shadowBlur = 15 + pulseEffect * 10;
-                ctx.shadowColor = '#fff';
-                ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 + pulseEffect * 0.2})`;
-                ctx.lineWidth = 4 + pulseEffect * 1.5;
+                // 1回目：少し太い半透明な線で光の広がりを表現（shadowBlurの高速代替）
+                ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + pulseEffect * 0.1})`;
+                ctx.lineWidth = 8 + pulseEffect * 3;
                 ctx.beginPath();
                 ctx.moveTo(pHitLeft.x, pHitLeft.y);
                 ctx.lineTo(pHitRight.x, pHitRight.y);
                 ctx.stroke();
-                ctx.shadowBlur = 0;
+
+                // 2回目：芯となる明るい不透明な線
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(pHitLeft.x, pHitLeft.y);
+                ctx.lineTo(pHitRight.x, pHitRight.y);
+                ctx.stroke();
             }
             
             ctx.globalCompositeOperation = 'source-over';
@@ -1581,11 +1572,31 @@
         function drawNotes(currentTime) {
             ctx.globalCompositeOperation = 'screen';
 
+            // 画面内に存在するノーツを抽出
+            const visibleNotes = notes.filter(n => {
+                const z = (n.time - currentTime) * NOTE_SPEED;
+                const endZ = n.isLong ? ((n.time + n.duration - currentTime) * NOTE_SPEED) : z;
+                
+                // 3D空間の表示範囲内にあるか判定 (遠方のz <= 10000 に戻す)
+                const inRange = endZ >= -500 && z <= 10000;
+                if (!inRange) return false;
+
+                if (n.isLong) {
+                    // ロングノーツは画面手前に消えるまで表示
+                    return true;
+                } else {
+                    // 通常ノーツは叩かれるまで表示
+                    return !n.hit;
+                }
+            });
+
             // Zが大きい(奥)から描画するためにソート
-            const visibleNotes = notes.filter(n => !n.missed && !n.holdCompleted && (n.isLong || !n.hit));
             visibleNotes.sort((a, b) => {
-                const zA = a.isHolding ? 0 : (a.time - currentTime) * NOTE_SPEED;
-                const zB = b.isHolding ? 0 : (b.time - currentTime) * NOTE_SPEED;
+                const isInsideA = a.isLong && (currentTime >= a.time && currentTime <= a.time + a.duration && !a.tailMissed && !a.holdCompleted);
+                const isInsideB = b.isLong && (currentTime >= b.time && currentTime <= b.time + b.duration && !b.tailMissed && !b.holdCompleted);
+                
+                const zA = (a.isHolding || isInsideA) ? 0 : (a.time - currentTime) * NOTE_SPEED;
+                const zB = (b.isHolding || isInsideB) ? 0 : (b.time - currentTime) * NOTE_SPEED;
                 return zB - zA;
             });
 
@@ -1594,9 +1605,9 @@
                 
                 const timeDiff = note.time - currentTime;
                 let z = timeDiff * NOTE_SPEED;
-                if (note.isHolding) z = 0;
-
-                if (z > 10000 || z < -500) continue; // 描画範囲外
+                
+                const isInsideBand = note.isLong && (currentTime >= note.time && currentTime <= note.time + note.duration && !note.tailMissed && !note.holdCompleted);
+                if (note.isHolding || isInsideBand) z = 0;
 
                 // ノーツの横幅のパディングを割合で計算
                 const padding = laneWorldWidth * 0.08;
@@ -1605,18 +1616,32 @@
 
                 // ロングノーツの帯を描画
                 if (note.isLong) {
+                    const startZ = (note.isHolding || isInsideBand) ? 0 : z;
                     const endTimeDiff = (note.time + note.duration) - currentTime;
                     const endZ = endTimeDiff * NOTE_SPEED;
                     
-                    if (endZ > z) {
-                        const p1 = project(wx1, z);
-                        const p2 = project(wx2, z);
+                    if (endZ > startZ) {
+                        const p1 = project(wx1, startZ);
+                        const p2 = project(wx2, startZ);
                         const p3 = project(wx2, endZ);
                         const p4 = project(wx1, endZ);
                         
                         if (p1 && p2 && p3 && p4) {
-                            ctx.globalAlpha = note.isHolding ? 0.9 : 0.6;
-                            ctx.fillStyle = COLORS[note.lane];
+                            // 状態に応じたカラーと透明度の決定
+                            let alpha = 0.5;
+                            let color = COLORS[note.lane];
+                            
+                            if (note.isHolding) {
+                                alpha = 0.85; // ホールド中は明るく発光
+                            } else if (note.tailMissed) {
+                                alpha = 0.25; // 終点ミスした後は暗くフェードアウト
+                                color = '#555555'; // 暗いグレーにしてミスをわかりやすくする
+                            } else {
+                                alpha = 0.5;  // 押していない/離した直後は半透明（通常のレーン色を維持）
+                            }
+
+                            ctx.globalAlpha = alpha;
+                            ctx.fillStyle = color;
                             ctx.beginPath();
                             ctx.moveTo(p1.x, p1.y);
                             ctx.lineTo(p2.x, p2.y);
@@ -1624,8 +1649,8 @@
                             ctx.lineTo(p4.x, p4.y);
                             ctx.fill();
                             
-                            ctx.strokeStyle = '#ffffff';
-                            ctx.lineWidth = 1;
+                            ctx.strokeStyle = note.isHolding ? '#ffffff' : 'rgba(255, 255, 255, 0.4)';
+                            ctx.lineWidth = note.isHolding ? 2 : 1;
                             ctx.stroke();
                             ctx.globalAlpha = 1.0;
 
@@ -1636,22 +1661,19 @@
                                     let subZ = subTimeDiff * NOTE_SPEED;
                                     
                                     // 判定ラインを過ぎた節は描画しない（ホールド中のため）
-                                    if (subZ < 0) return;
+                                    if (subZ < startZ) return;
                                     if (subZ > 10000 || subZ < -500) return;
 
                                     const pSubL = project(wx1, subZ);
                                     const pSubR = project(wx2, subZ);
 
                                     if (pSubL && pSubR) {
-                                        ctx.shadowBlur = 10 * pSubL.scale;
-                                        ctx.shadowColor = COLORS[note.lane];
-                                        ctx.strokeStyle = '#ffffff';
+                                        ctx.strokeStyle = note.tailMissed ? 'rgba(255, 255, 255, 0.2)' : '#ffffff';
                                         ctx.lineWidth = Math.max(1, 3 * pSubL.scale);
                                         ctx.beginPath();
                                         ctx.moveTo(pSubL.x, pSubL.y);
                                         ctx.lineTo(pSubR.x, pSubR.y);
                                         ctx.stroke();
-                                        ctx.shadowBlur = 0;
                                     }
                                 });
                             }
@@ -1660,11 +1682,24 @@
                 }
 
                 // ノーツの頭を描画
-                if (!note.hit || note.isHolding) {
+                // 通常ノーツ: 未ヒットの場合のみ
+                // ロングノーツ: 帯が画面手前に消えるまで、かつホールド完了するまで描画
+                const shouldDrawHead = note.isLong ? !note.holdCompleted : !note.hit;
+                if (shouldDrawHead) {
                     const isFlick = note.type === 'flick';
-                    const drawColor = isFlick ? '#ff003c' : COLORS[note.lane];
+                    let drawColor = isFlick ? '#ff003c' : COLORS[note.lane];
+                    let headFillColor = '#ffffff';
 
-                    const p = project(lanesStartX + note.lane * laneWorldWidth + laneWorldWidth/2, z);
+                    if (note.isLong) {
+                        if (note.tailMissed) {
+                            drawColor = '#555555'; // 終点ミスした場合はグレー
+                            headFillColor = '#333333';
+                        }
+                    }
+
+                    // ホールド中、または判定期間内なら判定ライン上(Z=0)に固定、そうでなければスクロール位置
+                    const headZ = (note.isHolding || isInsideBand) ? 0 : z;
+                    const p = project(lanesStartX + note.lane * laneWorldWidth + laneWorldWidth/2, headZ);
                     
                     if (p) {
                         const scale = p.scale;
@@ -1673,15 +1708,11 @@
                         const px = p.x - noteW / 2;
                         const py = p.y - noteH / 2;
 
-                        ctx.shadowBlur = 20 * scale;
-                        ctx.shadowColor = drawColor;
-                        
-                        ctx.fillStyle = '#ffffff';
+                        ctx.fillStyle = headFillColor;
                         ctx.beginPath();
                         ctx.roundRect(px, py, noteW, noteH, 8 * scale);
                         ctx.fill();
 
-                        ctx.shadowBlur = 0;
                         ctx.fillStyle = drawColor;
                         ctx.beginPath();
                         ctx.roundRect(px + 2*scale, py + 2*scale, noteW - 4*scale, noteH - 4*scale, 6 * scale);
@@ -1718,8 +1749,6 @@
 
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = p.color;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill();
@@ -1748,11 +1777,8 @@
 
                 ctx.globalAlpha = jt.life;
                 ctx.fillStyle = jt.color;
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = jt.color;
                 ctx.fillText(jt.text, jt.x, jt.y);
             }
-            ctx.shadowBlur = 0;
             ctx.globalAlpha = 1.0;
             ctx.globalCompositeOperation = 'source-over';
         }
