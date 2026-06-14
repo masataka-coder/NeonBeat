@@ -115,11 +115,11 @@
                 
                 <!-- ファイルドロップゾーン -->
                 <div class="w-full border-2 border-dashed border-gray-600 rounded-xl p-6 mb-4 hover:border-[#00e5ff] hover:bg-[#00e5ff]/5 transition-all cursor-pointer relative group flex-shrink-0" id="drop-zone">
-                    <input type="file" id="midi-upload" accept=".mid,.midi" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                    <input type="file" id="midi-upload" accept=".mid,.midi,.mp3,.wav,.ogg,.mp4,.webm,.mov,.m4v" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                     <div class="flex flex-col items-center pointer-events-none transition-transform group-hover:scale-105">
                         <svg class="w-10 h-10 mb-2 text-gray-400 group-hover:text-[#00e5ff] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                        <p class="text-base font-bold text-gray-200">ここにMIDIファイルをドロップ</p>
-                        <p class="text-xs text-gray-500 mt-1">またはクリックしてファイルを選択</p>
+                        <p class="text-base font-bold text-gray-200">ここにMIDI、音楽または動画ファイルをドロップ</p>
+                        <p class="text-xs text-gray-500 mt-1">またはクリックしてファイルを選択 (.mid, .mp3, .wav, .ogg, .mp4, .webm, .mov)</p>
                     </div>
                 </div>
 
@@ -142,20 +142,40 @@
 
                 <!-- セットアップパネル (初期非表示) -->
                 <div id="setup-panel" class="hidden w-full mb-4 bg-black/40 p-4 rounded-xl border border-gray-700 flex-shrink-0">
-                    <div class="mb-4">
+                    <div class="mb-4" id="track-select-container">
                         <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">トラックの選択</p>
                         <div id="track-list" class="flex flex-col gap-1.5 max-h-32 overflow-y-auto text-left text-sm text-gray-300 custom-scrollbar pr-2">
                             <!-- トラックリストがここに生成されます -->
                         </div>
                     </div>
                     
-                    <div class="mb-4">
+                    <div class="mb-4" id="instrument-select-container">
                         <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">使用する楽器</p>
                         <select id="instrument-select" class="w-full bg-gray-800/50 border border-gray-600 rounded p-2 text-sm text-[#39ff14] font-bold focus:outline-none focus:border-[#00e5ff] cursor-pointer hover:bg-gray-700/50 transition">
                             <option value="synth">基本シンセ (Basic Synth)</option>
                             <option value="fmsynth">FMシンセ (FM Synth - Electronic)</option>
                             <option value="amsynth">AMシンセ (AM Synth - Retro)</option>
                             <option value="duosynth">Duoシンセ (Duo Synth - Thick)</option>
+                        </select>
+                    </div>
+
+                    <!-- 音声ファイル用の難易度・SFX設定 -->
+                    <div class="mb-4 hidden" id="audio-density-container">
+                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">ノーツ密度 (難易度)</p>
+                        <select id="density-select" class="w-full bg-gray-800/50 border border-gray-600 rounded p-2 text-sm text-[#00e5ff] font-bold focus:outline-none focus:border-[#00e5ff] cursor-pointer hover:bg-gray-700/50 transition">
+                            <option value="easy">イージー (少ない)</option>
+                            <option value="normal" selected>ノーマル (標準)</option>
+                            <option value="hard">ハード (多い)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4 hidden" id="audio-sfx-container">
+                        <p class="text-xs text-[#00e5ff] tracking-widest mb-2 text-left font-bold border-b border-[#00e5ff]/30 pb-1">ヒット音効果音 (SFX)</p>
+                        <select id="sfx-select" class="w-full bg-gray-800/50 border border-gray-600 rounded p-2 text-sm text-[#39ff14] font-bold focus:outline-none focus:border-[#00e5ff] cursor-pointer hover:bg-gray-700/50 transition">
+                            <option value="clap" selected>ハンドクラップ (Clap)</option>
+                            <option value="synth">ピコピコ音 (Synth)</option>
+                            <option value="drum">太鼓 (Drum)</option>
+                            <option value="none">なし (None)</option>
                         </select>
                     </div>
 
@@ -252,8 +272,10 @@
         </div>
     </div>
 
+    <!-- 背景動画用エレメント -->
+    <video id="bg-video" class="absolute inset-0 w-full h-full object-cover hidden pointer-events-none" style="z-index: 1;" muted playsinline></video>
     <!-- 描画用キャンバス -->
-    <canvas id="game-canvas" class="absolute inset-0 z-0"></canvas>
+    <canvas id="game-canvas" class="absolute inset-0" style="z-index: 2;"></canvas>
 
     <script>
         /**
@@ -306,6 +328,14 @@
         let maxCombo = 0;
         let stats = { perfect: 0, great: 0, miss: 0 };
         let loadedMidi = null;
+        let loadedAudioBuffer = null;
+        let audioPlayer = null;
+        let isAudioMode = false;
+        let hasVideo = false;
+        let videoObjectURL = null;
+        let rawAudioNotes = [];
+        let loadedFileName = "";
+        let hitSynth = null;
         let activeKeys = [false, false, false, false];
         let laneEffects = [0, 0, 0, 0];
         let particles = [];
@@ -469,30 +499,58 @@
         function initAudio() {
             if (synth) {
                 synth.dispose();
+                synth = null;
+            }
+            if (hitSynth) {
+                hitSynth.dispose();
+                hitSynth = null;
+            }
+            if (audioPlayer) {
+                audioPlayer.dispose();
+                audioPlayer = null;
             }
 
-            const instType = document.getElementById('instrument-select').value;
-            let synthClass = Tone.Synth;
-            let options = {};
-
-            if (instType === 'fmsynth') {
-                synthClass = Tone.FMSynth;
-                options = { harmonicity: 3, modulationIndex: 10, oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.5 } };
-            } else if (instType === 'amsynth') {
-                synthClass = Tone.AMSynth;
-                options = { harmonicity: 2, oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.5 } };
-            } else if (instType === 'duosynth') {
-                synthClass = Tone.DuoSynth;
-                options = { vibratoAmount: 0.5, vibratoRate: 5, voice0: { oscillator: { type: "square" } }, voice1: { oscillator: { type: "sawtooth" } } };
+            if (isAudioMode) {
+                const sfxType = document.getElementById('sfx-select').value;
+                if (sfxType === 'clap') {
+                    hitSynth = new Tone.NoiseSynth({
+                        noise: { type: "pink" },
+                        envelope: { attack: 0.005, decay: 0.1, sustain: 0 }
+                    }).toDestination();
+                } else if (sfxType === 'drum') {
+                    hitSynth = new Tone.MembraneSynth({
+                        envelope: { attack: 0.001, decay: 0.15, sustain: 0 }
+                    }).toDestination();
+                } else if (sfxType === 'synth') {
+                    hitSynth = new Tone.Synth({
+                        oscillator: { type: "sine" },
+                        envelope: { attack: 0.002, decay: 0.08, sustain: 0 }
+                    }).toDestination();
+                }
             } else {
-                synthClass = Tone.Synth;
-                options = { oscillator: { type: "sawtooth" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 1 } };
-            }
+                const instType = document.getElementById('instrument-select').value;
+                let synthClass = Tone.Synth;
+                let options = {};
 
-            synth = new Tone.PolySynth(synthClass, options).toDestination();
-            synth.maxPolyphony = 32;
-            const limiter = new Tone.Limiter(-5).toDestination();
-            synth.connect(limiter);
+                if (instType === 'fmsynth') {
+                    synthClass = Tone.FMSynth;
+                    options = { harmonicity: 3, modulationIndex: 10, oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.5 } };
+                } else if (instType === 'amsynth') {
+                    synthClass = Tone.AMSynth;
+                    options = { harmonicity: 2, oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.5 } };
+                } else if (instType === 'duosynth') {
+                    synthClass = Tone.DuoSynth;
+                    options = { vibratoAmount: 0.5, vibratoRate: 5, voice0: { oscillator: { type: "square" } }, voice1: { oscillator: { type: "sawtooth" } } };
+                } else {
+                    synthClass = Tone.Synth;
+                    options = { oscillator: { type: "sawtooth" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 1 } };
+                }
+
+                synth = new Tone.PolySynth(synthClass, options).toDestination();
+                synth.maxPolyphony = 32;
+                const limiter = new Tone.Limiter(-5).toDestination();
+                synth.connect(limiter);
+            }
         }
 
         // MIDIの曲調（テンポ・音符密度・調性）を解析して背景演出テーマを適用する
@@ -535,14 +593,333 @@
             }
         }
 
-        // --- MIDIファイルの解析とUI更新 ---
+        function cleanUpVideo() {
+            const videoEl = document.getElementById('bg-video');
+            if (videoEl) {
+                videoEl.pause();
+                videoEl.src = "";
+                videoEl.load();
+                videoEl.classList.add('hidden');
+            }
+            if (videoObjectURL) {
+                URL.revokeObjectURL(videoObjectURL);
+                videoObjectURL = null;
+            }
+        }
+
+        // --- ファイルの解析とUI更新 ---
         async function processFile(file) {
+            const name = file.name.toLowerCase();
+            loadedFileName = file.name;
+            cleanUpVideo();
+            hasVideo = false;
+
+            const isVideo = file.type.startsWith('video/') || name.endsWith('.mp4') || name.endsWith('.webm') || name.endsWith('.mov') || name.endsWith('.m4v');
+
+            if (name.endsWith('.mid') || name.endsWith('.midi')) {
+                isAudioMode = false;
+                loadedAudioBuffer = null;
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    await processMidiArrayBuffer(arrayBuffer, file.name, false);
+                } catch (err) {
+                    console.error(err);
+                    fileNameDisplay.textContent = "ERROR: INVALID MIDI FILE";
+                    fileNameDisplay.className = "text-sm text-red-500 mb-4 h-6 font-bold";
+                }
+            } else if (name.endsWith('.mp3') || name.endsWith('.wav') || name.endsWith('.ogg') || isVideo) {
+                isAudioMode = true;
+                loadedMidi = null;
+
+                if (isVideo) {
+                    hasVideo = true;
+                    try {
+                        videoObjectURL = URL.createObjectURL(file);
+                        const videoEl = document.getElementById('bg-video');
+                        if (videoEl) {
+                            videoEl.src = videoObjectURL;
+                            videoEl.load();
+                        }
+                    } catch (err) {
+                        console.error("Video element setup failed:", err);
+                    }
+                }
+
+                fileNameDisplay.textContent = `DECODING ${isVideo ? 'VIDEO' : 'AUDIO'}: ${file.name}...`;
+                fileNameDisplay.className = "text-sm text-[#00e5ff] mb-4 h-6 font-bold";
+                startBtn.disabled = true;
+                setupPanel.classList.add('hidden');
+                
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                    await processAudioBuffer(audioBuffer, file.name);
+                    audioCtx.close();
+                } catch (err) {
+                    console.error(err);
+                    fileNameDisplay.textContent = `ERROR: COULD NOT DECODE ${isVideo ? 'VIDEO' : 'AUDIO'}`;
+                    fileNameDisplay.className = "text-sm text-red-500 mb-4 h-6 font-bold";
+                }
+            } else {
+                fileNameDisplay.textContent = "ERROR: UNSUPPORTED FILE TYPE";
+                fileNameDisplay.className = "text-sm text-red-500 mb-4 h-6 font-bold";
+            }
+        }
+
+        async function analyzeAudioBeats(audioBuffer) {
+            const offlineCtx = new OfflineAudioContext(
+                2,
+                audioBuffer.length,
+                audioBuffer.sampleRate
+            );
+
+            const source = offlineCtx.createBufferSource();
+            source.buffer = audioBuffer;
+
+            // Bass / Kick path (Channel 0)
+            const lowpass = offlineCtx.createBiquadFilter();
+            lowpass.type = "lowpass";
+            lowpass.frequency.value = 150;
+            lowpass.Q.value = 1.0;
+
+            // Treble / Snare / Transient path (Channel 1)
+            const bandpass = offlineCtx.createBiquadFilter();
+            bandpass.type = "bandpass";
+            bandpass.frequency.value = 3000;
+            bandpass.Q.value = 1.0;
+
+            const merger = offlineCtx.createChannelMerger(2);
+
+            source.connect(lowpass);
+            lowpass.connect(merger, 0, 0);
+
+            source.connect(bandpass);
+            bandpass.connect(merger, 0, 1);
+
+            merger.connect(offlineCtx.destination);
+            source.start(0);
+
+            return await offlineCtx.startRendering();
+        }
+
+        async function processAudioBuffer(audioBuffer, name) {
+            loadedAudioBuffer = audioBuffer;
+            currentSongKey = 'custom_audio_' + name;
+            updateHighScoreDisplay();
+
+            fileNameDisplay.textContent = `ANALYZING BEATS: ${name}...`;
+            
             try {
-                const arrayBuffer = await file.arrayBuffer();
-                await processMidiArrayBuffer(arrayBuffer, file.name, false);
+                // Perform dual-band filtering offline
+                const filteredBuffer = await analyzeAudioBeats(audioBuffer);
+                const sampleRate = filteredBuffer.sampleRate;
+                const density = document.getElementById('density-select')?.value || 'normal';
+                
+                // Adjust threshold multipliers based on density
+                let thresholdBass = 1.35;
+                let thresholdTreble = 1.55;
+                let minTimeBetweenPeaks = 0.22;
+
+                if (density === 'easy') {
+                    thresholdBass = 1.7;
+                    thresholdTreble = 1.9;
+                    minTimeBetweenPeaks = 0.35;
+                } else if (density === 'hard') {
+                    thresholdBass = 1.05;
+                    thresholdTreble = 1.25;
+                    minTimeBetweenPeaks = 0.12;
+                }
+
+                const windowSize = 1024;
+                const hopSize = 512;
+                
+                const bassData = filteredBuffer.getChannelData(0);
+                const trebleData = filteredBuffer.getChannelData(1);
+                
+                const bassEnergies = [];
+                const trebleEnergies = [];
+
+                for (let i = 0; i < bassData.length - windowSize; i += hopSize) {
+                    let bassSum = 0;
+                    let trebleSum = 0;
+                    for (let j = 0; j < windowSize; j += 4) {
+                        bassSum += bassData[i + j] * bassData[i + j];
+                        trebleSum += trebleData[i + j] * trebleData[i + j];
+                    }
+                    const time = (i + windowSize / 2) / sampleRate;
+                    bassEnergies.push({ time, energy: Math.sqrt(bassSum / (windowSize / 4)) });
+                    trebleEnergies.push({ time, energy: Math.sqrt(trebleSum / (windowSize / 4)) });
+                }
+
+                // Function to find peaks
+                function findPeaks(energies, thresholdMultiplier, neighborhood = 15) {
+                    const peaks = [];
+                    for (let i = neighborhood; i < energies.length - neighborhood; i++) {
+                        const currentVal = energies[i].energy;
+                        let sum = 0;
+                        for (let j = -neighborhood; j <= neighborhood; j++) {
+                            sum += energies[i + j].energy;
+                        }
+                        const localMean = sum / (neighborhood * 2 + 1);
+
+                        let isLocalMax = true;
+                        for (let j = -4; j <= 4; j++) {
+                            if (energies[i + j].energy > currentVal) {
+                                isLocalMax = false;
+                                break;
+                            }
+                        }
+
+                        if (isLocalMax && currentVal > localMean * thresholdMultiplier + 0.003) {
+                            peaks.push({
+                                time: energies[i].time,
+                                energy: currentVal
+                            });
+                        }
+                    }
+                    return peaks;
+                }
+
+                const bassPeaks = findPeaks(bassEnergies, thresholdBass);
+                const treblePeaks = findPeaks(trebleEnergies, thresholdTreble);
+
+                // Combine peaks and map to lanes
+                const combinedPeaks = [];
+                
+                // Map bass to lanes 0 and 3 (alternating)
+                let bassLaneToggle = 0;
+                bassPeaks.forEach(p => {
+                    combinedPeaks.push({
+                        time: p.time,
+                        energy: p.energy,
+                        lane: bassLaneToggle === 0 ? 0 : 3,
+                        type: 'bass'
+                    });
+                    bassLaneToggle = 1 - bassLaneToggle;
+                });
+
+                // Map treble to lanes 1 and 2 (alternating)
+                let trebleLaneToggle = 0;
+                treblePeaks.forEach(p => {
+                    combinedPeaks.push({
+                        time: p.time,
+                        energy: p.energy,
+                        lane: trebleLaneToggle === 0 ? 1 : 2,
+                        type: 'treble'
+                    });
+                    trebleLaneToggle = 1 - trebleLaneToggle;
+                });
+
+                // Sort by time
+                combinedPeaks.sort((a, b) => a.time - b.time);
+
+                // Filter & merge close peaks (simultaneous double notes or spacing)
+                rawAudioNotes = [];
+                let lastNoteTime = -100;
+                
+                for (let i = 0; i < combinedPeaks.length; i++) {
+                    const current = combinedPeaks[i];
+                    
+                    // If this peak is too close to the last placed note, check if we can make it a simultaneous press
+                    if (current.time - lastNoteTime < 0.05 && rawAudioNotes.length > 0) {
+                        // Upgrade the previous note to a double note if it's on a different lane
+                        const lastNote = rawAudioNotes[rawAudioNotes.length - 1];
+                        if (lastNote.lane !== current.lane && !lastNote.isDouble) {
+                            // Add the second note
+                            rawAudioNotes.push({
+                                time: lastNote.time,
+                                duration: 0.1,
+                                midiNote: current.lane,
+                                lane: current.lane,
+                                type: 'normal',
+                                isDouble: true
+                            });
+                            lastNote.isDouble = true;
+                        }
+                        continue;
+                    }
+
+                    if (current.time - lastNoteTime >= minTimeBetweenPeaks) {
+                        const isLong = Math.random() > 0.88;
+                        const duration = isLong ? 0.35 + Math.random() * 0.5 : 0.1;
+                        const noteType = (!isLong && current.energy > 0.22 && Math.random() > 0.75) ? 'flick' : 'normal';
+
+                        rawAudioNotes.push({
+                            time: current.time,
+                            duration: duration,
+                            midiNote: current.lane,
+                            lane: current.lane,
+                            type: noteType
+                        });
+                        lastNoteTime = current.time;
+                    }
+                }
+
+                // Estimate BPM for visuals
+                if (bassPeaks.length > 1) {
+                    const intervals = [];
+                    for (let i = 1; i < bassPeaks.length; i++) {
+                        intervals.push(bassPeaks[i].time - bassPeaks[i - 1].time);
+                    }
+                    intervals.sort((a, b) => a - b);
+                    const medianInterval = intervals[Math.floor(intervals.length / 2)];
+                    currentBpm = Math.round(60 / medianInterval);
+                    if (currentBpm < 60) currentBpm *= 2;
+                    if (currentBpm > 180) currentBpm /= 2;
+                } else {
+                    currentBpm = 120;
+                }
+
+                if (currentBpm >= 130) {
+                    applyTheme('cyber_runner');
+                } else if (currentBpm <= 95) {
+                    applyTheme('neon_highway');
+                } else {
+                    applyTheme('neon_beat');
+                }
+
+                document.getElementById('track-select-container')?.classList.add('hidden');
+                document.getElementById('instrument-select-container')?.classList.add('hidden');
+                document.getElementById('audio-density-container')?.classList.remove('hidden');
+                document.getElementById('audio-sfx-container')?.classList.remove('hidden');
+
+                dropZone.classList.add('hidden');
+                if (sampleSection) sampleSection.classList.add('hidden');
+                setupPanel.classList.remove('hidden');
+
+                fileNameDisplay.textContent = `READY (${hasVideo ? 'VIDEO' : 'AUDIO'}): ${name}`;
+                fileNameDisplay.className = "text-sm text-[#39ff14] mb-4 h-6 font-bold flex justify-center items-center gap-2";
+
+                updateDurationDisplay();
+
+                const resetBtn = document.createElement('button');
+                resetBtn.textContent = 'ファイル変更';
+                resetBtn.className = 'text-xs bg-gray-700/80 px-3 py-1 rounded-full hover:bg-gray-600 text-white ml-2 transition-colors border border-gray-500';
+                resetBtn.onclick = () => {
+                    cleanUpVideo();
+                    hasVideo = false;
+                    dropZone.classList.remove('hidden');
+                    if (sampleSection) sampleSection.classList.remove('hidden');
+                    setupPanel.classList.add('hidden');
+                    fileNameDisplay.innerHTML = '';
+                    startBtn.disabled = true;
+                    startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    loadedAudioBuffer = null;
+                    isAudioMode = false;
+                    document.getElementById('track-select-container')?.classList.remove('hidden');
+                    document.getElementById('instrument-select-container')?.classList.remove('hidden');
+                    document.getElementById('audio-density-container')?.classList.add('hidden');
+                    document.getElementById('audio-sfx-container')?.classList.add('hidden');
+                };
+                fileNameDisplay.appendChild(resetBtn);
+
+                startBtn.disabled = false;
+                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
             } catch (err) {
                 console.error(err);
-                fileNameDisplay.textContent = "ERROR: INVALID MIDI FILE";
+                fileNameDisplay.textContent = "ERROR: ANALYSIS FAILED";
                 fileNameDisplay.className = "text-sm text-red-500 mb-4 h-6 font-bold";
             }
         }
@@ -563,6 +940,8 @@
             fileNameDisplay.className = "text-sm text-[#00e5ff] mb-4 h-6 font-bold";
             startBtn.disabled = true;
             setupPanel.classList.add('hidden');
+            cleanUpVideo();
+            hasVideo = false;
             
             try {
                 loadedMidi = midi;
@@ -630,6 +1009,8 @@
                 resetBtn.textContent = 'ファイル変更';
                 resetBtn.className = 'text-xs bg-gray-700/80 px-3 py-1 rounded-full hover:bg-gray-600 text-white ml-2 transition-colors border border-gray-500';
                 resetBtn.onclick = () => {
+                    cleanUpVideo();
+                    hasVideo = false;
                     dropZone.classList.remove('hidden');
                     if (sampleSection) sampleSection.classList.remove('hidden');
                     setupPanel.classList.add('hidden');
@@ -929,12 +1310,12 @@
         function updateDurationDisplay() {
             const durationEl = document.getElementById('duration-display');
             if (!durationEl) return;
-            if (!loadedMidi) {
+            if (!loadedMidi && !loadedAudioBuffer) {
                 durationEl.textContent = "-";
                 return;
             }
             const speed = parseFloat(document.getElementById('speed-slider').value) || 1.0;
-            const durationSeconds = loadedMidi.duration / speed;
+            const durationSeconds = (isAudioMode ? loadedAudioBuffer.duration : loadedMidi.duration) / speed;
             durationEl.textContent = formatTime(durationSeconds);
         }
 
@@ -944,19 +1325,26 @@
             updateDurationDisplay();
         });
 
+        // 難易度（ノーツ密度）変更イベント
+        document.getElementById('density-select')?.addEventListener('change', () => {
+            if (isAudioMode && loadedAudioBuffer) {
+                processAudioBuffer(loadedAudioBuffer, loadedFileName);
+            }
+        });
+
 
 
         // --- ゲームスタート ---
         startBtn.addEventListener('click', async () => {
-            if (gameState === 'playing' || gameState === 'countdown' || !loadedMidi) return;
+            if (gameState === 'playing' || gameState === 'countdown' || !(loadedMidi || loadedAudioBuffer)) return;
             
             const speed = parseFloat(document.getElementById('speed-slider').value);
-            const selectedTracks = Array.from(document.querySelectorAll('#track-list input:checked')).map(cb => parseInt(cb.value));
+            const selectedTracks = isAudioMode ? [] : Array.from(document.querySelectorAll('#track-list input:checked')).map(cb => parseInt(cb.value));
             const gameMode = document.getElementById('game-mode-select').value;
             const isEasyMode = gameMode === 'easy';
             const isTapOnlyMode = gameMode === 'tap';
             
-            if (selectedTracks.length === 0) {
+            if (!isAudioMode && selectedTracks.length === 0) {
                 const title = document.querySelector('#setup-panel p');
                 title.classList.add('text-red-500');
                 setTimeout(() => title.classList.remove('text-red-500'), 1000);
@@ -992,47 +1380,85 @@
             let rawNotes = [];
             const START_OFFSET = 2.0; // GO!から最初の音が鳴るまでの猶予時間（ノーツの落下時間）
             
-            // トラックごとにノートをスケジュール
-            loadedMidi.tracks.forEach((track, trackIdx) => {
-                const isSelected = selectedTracks.includes(trackIdx);
-                
-                track.notes.forEach(note => {
-                    // スピードと開始オフセットを加味した時間
+            if (isAudioMode) {
+                audioPlayer = new Tone.Player(loadedAudioBuffer).toDestination();
+                audioPlayer.playbackRate = speed;
+                audioPlayer.sync().start(START_OFFSET);
+
+                if (hasVideo) {
+                    const videoEl = document.getElementById('bg-video');
+                    if (videoEl) {
+                        videoEl.muted = true;
+                        videoEl.playbackRate = speed;
+                        videoEl.currentTime = 0;
+                        videoEl.classList.remove('hidden');
+                        
+                        Tone.Transport.schedule((time) => {
+                            Tone.Draw.schedule(() => {
+                                videoEl.play().catch(err => console.error("Video play failed:", err));
+                            }, time);
+                        }, START_OFFSET);
+                    }
+                }
+
+                rawAudioNotes.forEach(note => {
                     const scaledTime = (note.time / speed) + START_OFFSET;
                     const scaledDuration = note.duration / speed;
+
+                    if (isEasyMode && scaledDuration < 0.3) return;
+
+                    rawNotes.push({
+                        time: scaledTime,
+                        duration: scaledDuration,
+                        midiNote: note.midiNote,
+                        name: "C4",
+                        velocity: 0.8,
+                        type: note.type
+                    });
+                });
+            } else {
+                // トラックごとにノートをスケジュール
+                loadedMidi.tracks.forEach((track, trackIdx) => {
+                    const isSelected = selectedTracks.includes(trackIdx);
                     
-                    if (isSelected) {
-                        // EASYモードの場合は短いノーツを除外する（0.3秒未満など）
-                        if (isEasyMode && scaledDuration < 0.3) {
-                             Tone.Transport.schedule((time) => {
+                    track.notes.forEach(note => {
+                        // スピードと開始オフセットを加味した時間
+                        const scaledTime = (note.time / speed) + START_OFFSET;
+                        const scaledDuration = note.duration / speed;
+                        
+                        if (isSelected) {
+                            // EASYモードの場合は短いノーツを除外する（0.3秒未満など）
+                            if (isEasyMode && scaledDuration < 0.3) {
+                                 Tone.Transport.schedule((time) => {
+                                    const dur = Math.min(scaledDuration, 0.5);
+                                    synth.triggerAttackRelease(note.name, dur, time, note.velocity * 0.3);
+                                }, scaledTime);
+                                return; 
+                            }
+
+                            // プレイヤーが叩くノーツとして一時保存
+                            rawNotes.push({
+                                time: scaledTime,
+                                duration: scaledDuration,
+                                midiNote: note.midi,
+                                name: note.name,
+                                velocity: note.velocity
+                            });
+                            // プレイヤー操作トラックもタイミングに合わせて自動発音
+                            Tone.Transport.schedule((time) => {
+                                const dur = Math.min(scaledDuration, 0.5);
+                                synth.triggerAttackRelease(note.name, dur, time, note.velocity * 0.8);
+                            }, scaledTime);
+                        } else {
+                            // BGMとして自動再生するノーツ
+                            Tone.Transport.schedule((time) => {
                                 const dur = Math.min(scaledDuration, 0.5);
                                 synth.triggerAttackRelease(note.name, dur, time, note.velocity * 0.3);
                             }, scaledTime);
-                            return; 
                         }
-
-                        // プレイヤーが叩くノーツとして一時保存
-                        rawNotes.push({
-                            time: scaledTime,
-                            duration: scaledDuration,
-                            midiNote: note.midi,
-                            name: note.name,
-                            velocity: note.velocity
-                        });
-                        // プレイヤー操作トラックもタイミングに合わせて自動発音
-                        Tone.Transport.schedule((time) => {
-                            const dur = Math.min(scaledDuration, 0.5);
-                            synth.triggerAttackRelease(note.name, dur, time, note.velocity * 0.8);
-                        }, scaledTime);
-                    } else {
-                        // BGMとして自動再生するノーツ
-                        Tone.Transport.schedule((time) => {
-                            const dur = Math.min(scaledDuration, 0.5);
-                            synth.triggerAttackRelease(note.name, dur, time, note.velocity * 0.3);
-                        }, scaledTime);
-                    }
+                    });
                 });
-            });
+            }
 
             // --- 1. 同時発音（和音）の間引き ---
             // プレイ用のノーツ群を時間順にソートし、同時押しが横に並ばないようにする
@@ -1120,7 +1546,20 @@
                     countdownEl.classList.add('opacity-100', 'scale-110');
                     
                     // カウントダウンの音
-                    synth.triggerAttackRelease(stepIdx === 3 ? "C5" : "C4", "8n", Tone.now());
+                    if (isAudioMode) {
+                        if (hitSynth) {
+                            const sfxType = document.getElementById('sfx-select').value;
+                            if (sfxType === 'clap') {
+                                hitSynth.triggerAttackRelease("8n", Tone.now());
+                            } else if (sfxType === 'drum') {
+                                hitSynth.triggerAttack(stepIdx === 3 ? "C3" : "C2", Tone.now());
+                            } else if (sfxType === 'synth') {
+                                hitSynth.triggerAttackRelease(stepIdx === 3 ? "C5" : "C4", "8n", Tone.now());
+                            }
+                        }
+                    } else if (synth) {
+                        synth.triggerAttackRelease(stepIdx === 3 ? "C5" : "C4", "8n", Tone.now());
+                    }
                     
                     setTimeout(() => {
                         countdownEl.classList.remove('opacity-100', 'scale-110');
@@ -1163,6 +1602,13 @@
             gameState = 'result';
             Tone.Transport.stop();
             Tone.Transport.cancel();
+            if (audioPlayer) {
+                audioPlayer.stop();
+            }
+            const videoEl = document.getElementById('bg-video');
+            if (videoEl) {
+                videoEl.pause();
+            }
             
             // ハイスコア判定と保存
             const highscore = getHighScore(currentSongKey);
@@ -1238,6 +1684,12 @@
                 setTimeout(() => { uiStartScreen.style.opacity = '1'; }, 50);
             }, 700);
             gameState = 'menu';
+            const videoEl = document.getElementById('bg-video');
+            if (videoEl) {
+                videoEl.classList.add('hidden');
+                videoEl.pause();
+                videoEl.currentTime = 0;
+            }
         });
 
         // --- 入力判定・UI更新 ---
@@ -1296,6 +1748,17 @@
                 spawnParticles(lane, 8);
                 spawnJudgeText("PERFECT", lane, "#00ffff");
                 cameraShake = 0.0;
+                // Play hit sound effect if in audio mode
+                if (isAudioMode && hitSynth) {
+                    const sfxType = document.getElementById('sfx-select').value;
+                    if (sfxType === 'clap') {
+                        hitSynth.triggerAttackRelease("16n");
+                    } else if (sfxType === 'drum') {
+                        hitSynth.triggerAttack("C2");
+                    } else if (sfxType === 'synth') {
+                        hitSynth.triggerAttackRelease("C5", "16n");
+                    }
+                }
             } else if (diff <= GREAT_WINDOW) {
                 target.hit = true;
                 if (target.isLong) target.isHolding = true;
@@ -1306,6 +1769,17 @@
                 spawnParticles(lane, 4);
                 spawnJudgeText("GREAT", lane, "#39ff14");
                 cameraShake = 0.0;
+                // Play hit sound effect if in audio mode
+                if (isAudioMode && hitSynth) {
+                    const sfxType = document.getElementById('sfx-select').value;
+                    if (sfxType === 'clap') {
+                        hitSynth.triggerAttackRelease("16n");
+                    } else if (sfxType === 'drum') {
+                        hitSynth.triggerAttack("C2");
+                    } else if (sfxType === 'synth') {
+                        hitSynth.triggerAttackRelease("C5", "16n");
+                    }
+                }
             }
             maxCombo = Math.max(maxCombo, combo);
             updateScoreUI();
@@ -1480,9 +1954,14 @@
         function drawBackground(dt) {
             bgTime += dt;
             
-            // 単色の暗い背景
-            ctx.fillStyle = '#030308';
-            ctx.fillRect(0, 0, width, height);
+            if (hasVideo && gameState === 'playing') {
+                ctx.clearRect(0, 0, width, height);
+                ctx.fillStyle = 'rgba(3, 3, 8, 0.65)';
+                ctx.fillRect(0, 0, width, height);
+            } else {
+                ctx.fillStyle = '#030308';
+                ctx.fillRect(0, 0, width, height);
+            }
 
             // 空間把握のためのシンプルな地平線のみ描画
             ctx.strokeStyle = 'rgba(0, 229, 255, 0.2)';
@@ -1810,7 +2289,7 @@
                 
                 // 残り時間の計算と表示
                 const speed = parseFloat(document.getElementById('speed-slider').value) || 1.0;
-                const totalSeconds = (loadedMidi.duration / speed) + 2.0; // 猶予時間2秒を含む
+                const totalSeconds = ((isAudioMode ? loadedAudioBuffer.duration : loadedMidi.duration) / speed) + 2.0; // 猶予時間2秒を含む
                 const remaining = Math.max(0, totalSeconds - currentTime);
                 document.getElementById('time-display').textContent = formatTime(remaining);
                 
@@ -1828,7 +2307,7 @@
                         if (currentTime > lastNoteTime + 2.0) endGame();
                     } else {
                         const speed = parseFloat(document.getElementById('speed-slider').value);
-                        const anyTrackEnd = loadedMidi.duration / speed;
+                        const anyTrackEnd = (isAudioMode ? loadedAudioBuffer.duration : loadedMidi.duration) / speed;
                         if (currentTime > anyTrackEnd + 2.0) endGame();
                     }
                 }
